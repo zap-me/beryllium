@@ -58,7 +58,7 @@ def tf_code_validate(user: User, code: str) -> bool:
         return False
 
     # verify entered token with user's totp secret
-    if not window or not _security._totp_factory.verify_totp(
+    if not window or not user.tf_totp_secret or not _security._totp_factory.verify_totp(
         token=code,
         totp_secret=user.tf_totp_secret,
         user=user,

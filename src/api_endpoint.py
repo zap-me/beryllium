@@ -175,6 +175,7 @@ def api_key_create():
     api_key = ApiKey(user, device_name)
     for name in Permission.PERMS_ALL:
         perm = Permission.from_name(db.session, name)
+        assert(perm)
         api_key.permissions.append(perm)
     db.session.add(api_key)
     db.session.commit()
@@ -260,7 +261,8 @@ def api_key_confirm(token=None, secret=None):
         api_key = ApiKey(req.user, req.device_name)
         for name in perms:
             perm = Permission.from_name(db.session, name)
-            api_key.permissions.append(perm)
+            if perm:
+                api_key.permissions.append(perm)
         req.created_api_key = api_key
         db.session.add(req)
         db.session.add(api_key)
@@ -286,7 +288,7 @@ def user_info():
     if user.email != api_key.user.email and not api_key.user.has_role(Role.ROLE_ADMIN):
         time.sleep(5)
         return bad_request(web_utils.AUTH_FAILED)
-    return jsonify(websocket.user_info_dict(api_key, user is api_key.user))
+    return jsonify(websocket.user_info_dict(api_key, email == api_key.user.email))
 
 @api.route('/user_reset_password', methods=['POST'])
 @limiter.limit('10/hour')
@@ -352,7 +354,7 @@ def user_update_email_confirm(token=None):
             return bad_request(web_utils.AUTH_FAILED)
         user = req.user
         old_email = user.email
-        user.email = req.email
+        user.email = req.email # pyright: ignore [reportGeneralTypeIssues]  - I dont know!!!
         db.session.add(user)
         db.session.delete(req)
         db.session.commit()

@@ -98,21 +98,22 @@ def _broker_order_action(db_session: Session, broker_order: BrokerOrder):
     # finalize
     if broker_order.status == broker_order.STATUS_EXCHANGE:
         # check exchange order
-        if dasset.order_status_check(broker_order.exchange_order.exchange_reference, broker_order.market):
-            if side is MarketSide.ASK:
-                asset = broker_order.quote_asset
-                amount_int = broker_order.quote_amount
+        if broker_order.exchange_order:
+            if dasset.order_status_check(broker_order.exchange_order.exchange_reference, broker_order.market):
+                if side is MarketSide.ASK:
+                    asset = broker_order.quote_asset
+                    amount_int = broker_order.quote_amount
+                else:
+                    asset = broker_order.base_asset
+                    amount_int = broker_order.base_amount
+                ftx = fiatdb_core.tx_create(broker_order.user, FiatDbTransaction.ACTION_CREDIT, asset, amount_int, f'broker order completed: {broker_order.token}')
+                updated_records.append(ftx)
+                broker_order.status = broker_order.STATUS_COMPLETED
+                updated_records.append(broker_order)
             else:
-                asset = broker_order.base_asset
-                amount_int = broker_order.base_amount
-            ftx = fiatdb_core.tx_create(broker_order.user, FiatDbTransaction.ACTION_CREDIT, asset, amount_int, f'broker order completed: {broker_order.token}')
-            updated_records.append(ftx)
-            broker_order.status = broker_order.STATUS_COMPLETED
-            updated_records.append(broker_order)
-        else:
-            msg = f'{broker_order.token}, {broker_order.exchange_order.exchange_reference}'
-            logger.error('failed to complete exchange order - %s', msg)
-            email_utils.send_email(logger, 'failed to complete exchange order', msg)
+                msg = f'{broker_order.token}, {broker_order.exchange_order.exchange_reference}'
+                logger.error('failed to complete exchange order - %s', msg)
+                email_utils.send_email(logger, 'failed to complete exchange order', msg)
         return updated_records
     # check expiry
     if broker_order.status == broker_order.STATUS_CREATED:

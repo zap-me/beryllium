@@ -27,9 +27,9 @@ if [[ "$what" =~ ^(all|python)$ ]]; then
 	# TODO review and remove some ignores
 	(cd src && pycodestyle --statistics --ignore E265,E722,E261,E501,E301,E302,E305,E121,E123,E126,E133,E226,E241,E242,E704,W503,W504,W505 `ls|grep .py$|xargs`)
 
-	echo '# linting python files with mypy..'
-	mypy --version
-	mypy src/app.py --ignore-missing-imports
+	#echo '# linting python files with mypy..'
+	#mypy --version
+	#mypy src/app.py --ignore-missing-imports
 
 	echo '# linting python files with pyright..'
 	pyright --version

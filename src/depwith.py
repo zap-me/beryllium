@@ -146,7 +146,7 @@ def _fiat_withdrawal_update(fiat_withdrawal: FiatWithdrawal):
         return updated_records
     # check status
     if fiat_withdrawal.status == fiat_withdrawal.STATUS_CREATED:
-        conf: WithdrawalConfirmation = fiat_withdrawal.withdrawal_confirmation
+        conf = fiat_withdrawal.withdrawal_confirmation
         if not conf:
             logger.error('fiat withdrawal (%s) does not have a confirmation record', fiat_withdrawal.token)
             return updated_records
