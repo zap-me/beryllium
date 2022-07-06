@@ -1,11 +1,12 @@
+from dataclasses import dataclass
 import logging
 import decimal
 import json
 from enum import Enum
 import time
+from typing import Any, Tuple
 
 import requests
-from munch import Munch
 import pyotp
 
 import utils
@@ -26,15 +27,79 @@ CRYPTO_WITHDRAWAL_STATUS_COMPLETED = 'completed'
 CRYPTO_WITHDRAWAL_STATUS_2FA = '2fa'
 CRYPTO_WITHDRAWAL_STATUS_UNKNOWN = 'unknown'
 
-_cache: dict[str, Munch] = {}
-MARKETS_KEY = 'markets'
-CACHE_EXPIRY = 30
-
 class QuoteResult(Enum):
     OK = 0
     AMOUNT_TOO_LOW = 1
     INSUFFICIENT_LIQUIDITY = 2
     MARKET_API_FAIL = 3
+
+@dataclass
+class DassetBalance:
+    symbol: str
+    name: str
+    total: decimal.Decimal
+    available: decimal.Decimal
+    decimals: int
+
+@dataclass
+class DassetAsset:
+    symbol: str
+    name: str
+    coin_type: str
+    status: str
+    min_confs: int
+    message: str
+    decimals: int
+
+@dataclass
+class DassetMarket:
+    symbol: str
+    base_asset: str
+    quote_asset: str
+    precision: str
+    status: str
+    min_trade: str
+    message: str
+
+@dataclass
+class DassetOrderbook:
+    bids: Any
+    asks: Any
+
+@dataclass
+class DassetOrder:
+    id: Any
+    base_asset: str
+    quote_asset: str
+    date: str
+    side: assets.MarketSide
+    status: str
+    base_amount: str
+    quote_amount: str
+    filled: str
+
+@dataclass
+class DassetDeposit:
+    id: Any
+    symbol: str
+    address: str
+    amount: decimal.Decimal
+    date: str
+    status: str
+    txid: str | None
+
+@dataclass
+class DassetWithdrawal:
+    id: Any
+    symbol: str
+    amount: str
+    date: str
+    status: str
+    address: str
+
+_orderbook_cache: dict[str, Tuple[float, DassetOrderbook]] = {}
+_markets_cache: Tuple[float, list[DassetMarket]] | None = None
+CACHE_EXPIRY = 30
 
 #
 # Helper functions
@@ -45,36 +110,36 @@ def _account_mock():
 
 def _parse_balance(item):
     symbol = item['currencySymbol']
-    return Munch(symbol=symbol, name=item['currencyName'], total=decimal.Decimal(item['total']), available=decimal.Decimal(item['available']), decimals=assets.asset_decimals(symbol))
+    return DassetBalance(symbol=symbol, name=item['currencyName'], total=decimal.Decimal(item['total']), available=decimal.Decimal(item['available']), decimals=assets.asset_decimals(symbol))
 
 def _parse_asset(item):
     symbol = item['symbol']
     message = ''
     if 'notice' in item:
         message = item['notice']
-    return Munch(symbol=symbol, name=item['name'], coin_type=item['coinType'], status=item['status'], min_confs=item['minConfirmations'], message=message, decimals=assets.asset_decimals(symbol))
+    return DassetAsset(symbol=symbol, name=item['name'], coin_type=item['coinType'], status=item['status'], min_confs=item['minConfirmations'], message=message, decimals=assets.asset_decimals(symbol))
 
 def _parse_market(item):
     message = ''
     if 'notice' in item:
         message = item['notice']
-    return Munch(symbol=item['symbol'], base_asset=item['baseCurrencySymbol'], quote_asset=item['quoteCurrencySymbol'], precision=item['precision'], status=item['status'], min_trade=item['minTradeSize'], message=message)
+    return DassetMarket(symbol=item['symbol'], base_asset=item['baseCurrencySymbol'], quote_asset=item['quoteCurrencySymbol'], precision=item['precision'], status=item['status'], min_trade=item['minTradeSize'], message=message)
 
 def _parse_order_book(item):
-    return Munch(bids=item['bid'], asks=item['ask'])
+    return DassetOrderbook(bids=item['bid'], asks=item['ask'])
 
 def _parse_order(item):
     side = assets.MarketSide.BID if item['type'] == 'BUY' else assets.MarketSide.ASK
-    return Munch(id=item['id'], base_asset=['baseSymbol'], quote_asset=['quoteSymbol'], date=item['timestamp'], side=side, status=item['status'],
-                 base_amount=item['baseAmount'], quote_amount=item['quoteAmount'], filled=item['details']['filled'])
+    return DassetOrder(id=item['id'], base_asset=item['baseSymbol'], quote_asset=item['quoteSymbol'], date=item['timestamp'], side=side, status=item['status'],
+                       base_amount=item['baseAmount'], quote_amount=item['quoteAmount'], filled=item['details']['filled'])
 
 def _parse_deposit(item):
-    return Munch(id=item['id'], symbol=item['currencySymbol'], address=item['cryptoAddress'], amount=decimal.Decimal(item['quantity']), date=item['updatedAt'], status=item['status'], txid=item['txId'])
+    return DassetDeposit(id=item['id'], symbol=item['currencySymbol'], address=item['cryptoAddress'], amount=decimal.Decimal(item['quantity']), date=item['updatedAt'], status=item['status'], txid=item['txId'])
 
 def _parse_withdrawal_full(item):
     id_ = item['id'] if 'id' in item else item['transactionId']
     amount = item['amount'] if 'amount' in item else item['quantity']
-    return Munch(id=id_, symbol=item['currencySymbol'], amount=amount, date=item['createdAt'], status=item['status'], address=item['cryptoAddress'])
+    return DassetWithdrawal(id=id_, symbol=item['currencySymbol'], amount=amount, date=item['createdAt'], status=item['status'], address=item['cryptoAddress'])
 
 def _parse_withdrawal_2fa(item):
     id_ = item['transactionId']
@@ -82,7 +147,7 @@ def _parse_withdrawal_2fa(item):
         status = item['status']
     else:
         status = item['mfaStatus']
-    return Munch(id=id_, symbol='', amount=0, date='', status=status, address='')
+    return DassetWithdrawal(id=id_, symbol='', amount='0', date='', status=status, address='')
 
 def _parse_withdrawal(item):
     try:
@@ -94,7 +159,7 @@ def _parse_withdrawal(item):
 # Dasset API Requests
 #
 
-def _req_get(endpoint, params=None, subaccount_id=None, noapi_in_path=False, quiet=False):
+def _req_get(endpoint: str, params=None, subaccount_id: str | None = None, noapi_in_path=False, quiet=False):
     url = URL_BASE + endpoint
     if noapi_in_path:
         url = URL_BASE_NOAPI + endpoint
@@ -110,7 +175,7 @@ def _req_get(endpoint, params=None, subaccount_id=None, noapi_in_path=False, qui
         logger.info('HEADERS - %s', headers)
     return r
 
-def _req_post(endpoint, params, subaccount_id=None, noapi_in_path=False):
+def _req_post(endpoint: str, params, subaccount_id: str | None = None, noapi_in_path=False):
     url = URL_BASE + endpoint
     if noapi_in_path:
         url = URL_BASE_NOAPI + endpoint
@@ -146,18 +211,19 @@ def assets_req(asset=None):
     return None
 
 def markets_refresh_cache(margin: int):
-    if MARKETS_KEY in _cache:
-        timestamp, _ = _cache[MARKETS_KEY]
+    if _markets_cache:
+        timestamp, _ = _markets_cache
         if timestamp + CACHE_EXPIRY - margin > time.time():
             return
     #logger.info('refresh cache for %s', MARKETS_KEY)
     markets_req(quiet=True)
 
 def markets_req(use_cache=False, quiet=False):
+    global _markets_cache
     if use_cache:
         # see if we have a cached version to return
-        if MARKETS_KEY in _cache:
-            timestamp, markets = _cache[MARKETS_KEY]
+        if _markets_cache:
+            timestamp, markets = _markets_cache
             # if timestamp + cache expiry is greater then current timestamp then cache still valid
             if timestamp + CACHE_EXPIRY > time.time():
                 return markets
@@ -168,7 +234,7 @@ def markets_req(use_cache=False, quiet=False):
         # save to the cache with timestamp
         markets = r.json()
         markets = [_parse_market(m) for m in markets if m['symbol'] in assets.MARKETS]
-        _cache[MARKETS_KEY] = time.time(), markets
+        _markets_cache = time.time(), markets
         # return result to caller
         return markets
     logger.error('request failed: %d, %s', r.status_code, r.content)
@@ -184,8 +250,8 @@ def market_req(name, use_cache=False):
 
 def order_book_refresh_cache(margin: int):
     for symbol in assets.MARKETS:
-        if symbol in _cache:
-            timestamp, _ = _cache[symbol]
+        if symbol in _orderbook_cache:
+            timestamp, _ = _orderbook_cache[symbol]
             if timestamp + CACHE_EXPIRY - margin > time.time():
                 continue
         #logger.info('refresh cache for %s', symbol)
@@ -194,8 +260,8 @@ def order_book_refresh_cache(margin: int):
 def order_book_req(symbol, use_cache=False, quiet=False):
     if use_cache:
         # see if we have a cached version to return
-        if symbol in _cache:
-            timestamp, book = _cache[symbol]
+        if symbol in _orderbook_cache:
+            timestamp, book = _orderbook_cache[symbol]
             # if timestamp + cache expiry is greater then current timestamp then cache still valid
             if timestamp + CACHE_EXPIRY > time.time():
                 return book, BROKER_ORDER_FEE
@@ -206,13 +272,13 @@ def order_book_req(symbol, use_cache=False, quiet=False):
     if r.status_code == 200:
         # save to the cache with timestamp
         book = _parse_order_book(r.json()[0])
-        _cache[symbol] = time.time(), book
+        _orderbook_cache[symbol] = time.time(), book
         # return result to caller
         return book, BROKER_ORDER_FEE
     logger.error('request failed: %d, %s', r.status_code, r.content)
     return None
 
-def _balances_req(asset, subaccount_id):
+def _balances_req(asset: str | None, subaccount_id: str | None):
     endpoint = '/balances'
     if asset:
         endpoint = f'/balances/{asset}'
@@ -224,7 +290,7 @@ def _balances_req(asset, subaccount_id):
     logger.error('request failed: %d, %s', r.status_code, r.content)
     return None
 
-def _order_create_req(market, side, amount, price):
+def _order_create_req(market: str, side: assets.MarketSide, amount: decimal.Decimal, price: decimal.Decimal):
     assert isinstance(side, assets.MarketSide)
     assert isinstance(amount, decimal.Decimal)
     assert isinstance(price, decimal.Decimal)
@@ -248,7 +314,7 @@ def _orders_req(market, offset, limit):
     logger.error('request failed: %d, %s', r.status_code, r.content)
     return None
 
-def _order_status_req(order_id, market):
+def _order_status_req(order_id: str, market: str):
     offset = 0
     limit = 1000
     while True:
@@ -265,17 +331,17 @@ def _order_status_req(order_id, market):
     logger.error('exchange order %s not found for market %s', order_id, market)
     return None
 
-def _crypto_withdrawal_create_req(asset, amount, address):
+def _crypto_withdrawal_create_req(asset: str, amount: decimal.Decimal, address: str):
     assert isinstance(amount, decimal.Decimal)
     endpoint = '/crypto/withdrawals'
     r = _req_post(endpoint, params=dict(currencySymbol=asset, quantity=float(amount), cryptoAddress=address))
     if r.status_code == 200:
         withdrawal = _parse_withdrawal(r.json()[0])
-        return withdrawal['id']
+        return withdrawal.id
     logger.error('request failed: %d, %s', r.status_code, r.content)
     return None
 
-def _crypto_withdrawal_status_req(withdrawal_id):
+def _crypto_withdrawal_status_req(withdrawal_id: str):
     endpoint = f'/crypto/withdrawals/{withdrawal_id}'
     r = _req_get(endpoint)
     if r.status_code == 200:
@@ -283,7 +349,7 @@ def _crypto_withdrawal_status_req(withdrawal_id):
     logger.error('request failed: %d, %s', r.status_code, r.content)
     return None
 
-def _crypto_withdrawal_confirm_req(withdrawal_id, totp_code):
+def _crypto_withdrawal_confirm_req(withdrawal_id: str, totp_code: str):
     endpoint = '/crypto/withdrawals/confirm'
     r = _req_post(endpoint, params=dict(txId=withdrawal_id, token=totp_code), noapi_in_path=True)
     if r.status_code == 200:
@@ -291,11 +357,11 @@ def _crypto_withdrawal_confirm_req(withdrawal_id, totp_code):
     logger.error('request failed: %d, %s', r.status_code, r.content)
     return False
 
-def _addresses_req(asset, subaccount_id):
+def _addresses_req(asset: str, subaccount_id: str):
     endpoint = f'/addresses/{asset}'
     r = _req_get(endpoint, subaccount_id=subaccount_id)
     if r.status_code == 200:
-        addrs = []
+        addrs: list[str] = []
         for item in r.json():
             if item['status'] == 'PROVISIONED':
                 addrs.append(item['cryptoAddress'])
@@ -303,7 +369,7 @@ def _addresses_req(asset, subaccount_id):
     logger.error('request failed: %d, %s', r.status_code, r.content)
     return None
 
-def _addresses_create_req(asset, subaccount_id):
+def _addresses_create_req(asset: str, subaccount_id: str):
     endpoint = '/addresses'
     r = _req_post(endpoint, params=dict(currencySymbol=asset), subaccount_id=subaccount_id)
     if r.status_code == 200:
@@ -311,7 +377,7 @@ def _addresses_create_req(asset, subaccount_id):
     logger.error('request failed: %d, %s', r.status_code, r.content)
     return False
 
-def _crypto_deposits_pending_req(asset, subaccount_id):
+def _crypto_deposits_pending_req(asset: str, subaccount_id: str):
     endpoint = '/crypto/deposits/open'
     r = _req_get(endpoint, params=dict(currencySymbol=asset, status='PENDING'), subaccount_id=subaccount_id, noapi_in_path=True)
     if r.status_code == 200:
@@ -321,7 +387,7 @@ def _crypto_deposits_pending_req(asset, subaccount_id):
     logger.error('request failed: %d, %s', r.status_code, r.content)
     return None
 
-def _crypto_deposits_closed_req(asset, subaccount_id):
+def _crypto_deposits_closed_req(asset: str, subaccount_id: str):
     endpoint = '/crypto/deposits/closed'
     r = _req_get(endpoint, params=dict(currencySymbol=asset), subaccount_id=subaccount_id, noapi_in_path=True)
     if r.status_code == 200:
@@ -331,7 +397,7 @@ def _crypto_deposits_closed_req(asset, subaccount_id):
     logger.error('request failed: %d, %s', r.status_code, r.content)
     return None
 
-def _crypto_deposit_status_req(deposit_id):
+def _crypto_deposit_status_req(deposit_id: str):
     endpoint = f'/crypto/deposits/{deposit_id}'
     r = _req_get(endpoint)
     if r.status_code == 200:
@@ -339,7 +405,7 @@ def _crypto_deposit_status_req(deposit_id):
     logger.error('request failed: %d, %s', r.status_code, r.content)
     return None
 
-def _subaccount_req(reference):
+def _subaccount_req(reference: str):
     endpoint = '/subaccount'
     r = _req_put(endpoint, params=dict(reference=reference))
     if r.status_code == 200:
@@ -347,7 +413,7 @@ def _subaccount_req(reference):
     logger.error('request failed: %d, %s', r.status_code, r.content)
     return None
 
-def _transfer_req(to_master, from_subaccount_id, to_subaccount_id, asset, amount):
+def _transfer_req(to_master: bool, from_subaccount_id: str | None, to_subaccount_id: str | None, asset: str, amount: decimal.Decimal):
     endpoint = '/transfer'
     r = _req_put(endpoint, params=dict(toMasterAccount=to_master, fromSubaccountId=from_subaccount_id, toSubaccountId=to_subaccount_id, symbol=asset, quantity=str(amount)))
     if r.status_code == 200:
@@ -359,14 +425,14 @@ def _transfer_req(to_master, from_subaccount_id, to_subaccount_id, asset, amount
 # Public functions
 #
 
-def crypto_deposit_completed(deposit):
+def crypto_deposit_completed(deposit: DassetDeposit):
     return deposit and deposit.status == 'COMPLETED'
 
 #
 # Public functions that rely on an exchange request
 #
 
-def bid_quote_amount(market, amount, use_cache=False):
+def bid_quote_amount(market: str, amount: decimal.Decimal, use_cache=False):
     assert isinstance(amount, decimal.Decimal)
     dasset_market = market_req(market, use_cache=use_cache)
     if not dasset_market:
@@ -377,7 +443,7 @@ def bid_quote_amount(market, amount, use_cache=False):
 
     order_book_result = order_book_req(market, use_cache=use_cache)
     if not order_book_result:
-        return QuoteResult.MARKET_API_FAIL
+        return decimal.Decimal(-1), QuoteResult.MARKET_API_FAIL
     order_book, broker_fee = order_book_result
 
     filled = decimal.Decimal(0)
@@ -399,7 +465,7 @@ def bid_quote_amount(market, amount, use_cache=False):
 
     return decimal.Decimal(-1), QuoteResult.INSUFFICIENT_LIQUIDITY
 
-def ask_quote_amount(market, amount, use_cache=False):
+def ask_quote_amount(market: str, amount: decimal.Decimal, use_cache=False):
     assert isinstance(amount, decimal.Decimal)
     dasset_market = market_req(market, use_cache=use_cache)
     if not dasset_market:
@@ -410,7 +476,7 @@ def ask_quote_amount(market, amount, use_cache=False):
 
     order_book_result = order_book_req(market, use_cache=use_cache)
     if not order_book_result:
-        return QuoteResult.MARKET_API_FAIL
+        return decimal.Decimal(-1), QuoteResult.MARKET_API_FAIL
     order_book, broker_fee = order_book_result
 
     filled = decimal.Decimal(0)
@@ -432,34 +498,34 @@ def ask_quote_amount(market, amount, use_cache=False):
 
     return decimal.Decimal(-1), QuoteResult.INSUFFICIENT_LIQUIDITY
 
-def account_balances(asset=None, subaccount_id=None):
+def account_balances(asset: str | None = None, subaccount_id: str | None = None):
     if _account_mock():
         balances = []
         for item in assets.ASSETS.values():
             if subaccount_id and assets.asset_is_fiat(item.symbol):
                 continue
-            balance = Munch(symbol=item.symbol, name=item.name, total=decimal.Decimal(9999), available=decimal.Decimal(9999), decimals=item.decimals)
+            balance = DassetBalance(symbol=item.symbol, name=item.name, total=decimal.Decimal(9999), available=decimal.Decimal(9999), decimals=item.decimals)
             balances.append(balance)
         return balances
     return _balances_req(asset, subaccount_id)
 
-def order_create(market, side, amount, price):
+def order_create(market: str, side: assets.MarketSide, amount: decimal.Decimal, price: decimal.Decimal):
     if _account_mock():
         return utils.generate_key()
     return _order_create_req(market, side, amount, price)
 
-def order_status(order_id, market):
+def order_status(order_id: str, market: str):
     if _account_mock():
-        return Munch(id=order_id, status='Completed')
+        return DassetOrder(id=order_id, status='Completed', base_asset='', quote_asset='', date='', side=assets.MarketSide.ASK, base_amount='', quote_amount='', filled='')
     return _order_status_req(order_id, market)
 
-def order_status_check(order_id, market):
+def order_status_check(order_id: str, market: str):
     order = order_status(order_id, market)
     if not order:
         return False
     return order.status == 'Completed'
 
-def address_get_or_create(asset, subaccount_id):
+def address_get_or_create(asset: str, subaccount_id: str):
     if _account_mock():
         return asset + '-XXX'
     addrs = _addresses_req(asset, subaccount_id)
@@ -471,12 +537,12 @@ def address_get_or_create(asset, subaccount_id):
             return addrs[0]
     return None
 
-def crypto_withdrawal_create(asset, amount, address):
+def crypto_withdrawal_create(asset: str, amount: decimal.Decimal, address: str):
     if _account_mock():
         return utils.generate_key()
     return _crypto_withdrawal_create_req(asset, amount, address)
 
-def crypto_withdrawal_status_check(withdrawal_id):
+def crypto_withdrawal_status_check(withdrawal_id: str):
     if _account_mock():
         return CRYPTO_WITHDRAWAL_STATUS_COMPLETED
     withdrawal = _crypto_withdrawal_status_req(withdrawal_id)
@@ -488,13 +554,13 @@ def crypto_withdrawal_status_check(withdrawal_id):
         return CRYPTO_WITHDRAWAL_STATUS_2FA
     return CRYPTO_WITHDRAWAL_STATUS_UNKNOWN
 
-def crypto_withdrawal_confirm(withdrawal_id):
+def crypto_withdrawal_confirm(withdrawal_id: str):
     key = app.config['DASSET_TOTP_KEY']
     totp = pyotp.TOTP(key)
     code = totp.now()
     return _crypto_withdrawal_confirm_req(withdrawal_id, code)
 
-def crypto_deposits(asset, subaccount_id):
+def crypto_deposits(asset: str, subaccount_id: str):
     deposits = []
     deps = _crypto_deposits_pending_req(asset, subaccount_id)
     if deps:
@@ -506,24 +572,27 @@ def crypto_deposits(asset, subaccount_id):
             deposits.append(dep)
     return deposits
 
-def crypto_deposit_status_check(deposit_id):
+def crypto_deposit_status_check(deposit_id: str):
     if _account_mock():
         return True
     deposit = _crypto_deposit_status_req(deposit_id)
+    if not deposit:
+        logger.error('unable to get dasset deposit status (%s)', deposit_id)
+        return False
     return crypto_deposit_completed(deposit)
 
-def subaccount_create(reference):
+def subaccount_create(reference: str):
     if _account_mock():
         return utils.generate_key()
     return _subaccount_req(reference)
 
-def transfer(to_subaccount_id, from_subaccount_id, asset, amount):
+def transfer(to_subaccount_id: str | None, from_subaccount_id: str | None, asset: str, amount: decimal.Decimal):
     assert to_subaccount_id is None or from_subaccount_id is None
     assert isinstance(amount, decimal.Decimal)
     to_master = not to_subaccount_id
     return _transfer_req(to_master, from_subaccount_id, to_subaccount_id, asset, amount)
 
-def funds_available_us(asset, amount):
+def funds_available_us(asset: str, amount: decimal.Decimal):
     assert isinstance(amount, decimal.Decimal)
     balances = account_balances(asset)
     if balances:
