@@ -10,7 +10,7 @@ from app_core import app, limiter, db
 from models import BtcTxIndex, Role
 from ln import LnRpc, _msat_to_sat
 from wallet import bitcoind_rpc, btc_txs_load
-from tasks import rebalance_channels, task_manager, send_email
+from tasks import rebalance_channels, task_manager
 
 logger = logging.getLogger(__name__)
 ln_wallet = Blueprint('ln_wallet', __name__, template_folder='templates')
