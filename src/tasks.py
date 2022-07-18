@@ -109,9 +109,9 @@ def rebalance_channels(oscid: str, iscid: str, amount: int):
     LnRpc().rebalance_channel(oscid, iscid, amount)
     send_email('Channel Rebalance Successful', 'Rebalanced {0} -> {1} with {2} sats'.format(oscid, iscid, amount))
 
-def send_email(title: str, msg: str):
+def send_email(title: str, msg: str, receiving_email=None):
     gevent.sleep(10, False) # HACK: wait for the webserver to start
-    email_utils.send_email(logger, title, msg)
+    email_utils.send_email(logger, title, msg, receiving_email)
 
 def pay_to_invoice(invoice_str: str):
     gevent.sleep(10, False) # HACK: wait for the ln server to start
