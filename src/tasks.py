@@ -114,7 +114,7 @@ def send_email(title: str, msg: str):
     email_utils.send_email(logger, title, msg)
 
 def pay_to_invoice(invoice_str: str):
-    gevent.sleep(10, False) # HACK: wait for the webserver to start
+    gevent.sleep(10, False) # HACK: wait for the ln server to start
     LnRpc().pay(invoice_str)
 #
 # Init tasks
