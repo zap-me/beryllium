@@ -116,10 +116,11 @@ def email_tripwire_notification(logger: Logger):
 
 def email_withdrawal_confirmation(logger: Logger, conf: WithdrawalConfirmation):
     url = url_for("api.withdrawal_confirm", token=conf.token, secret=conf.secret, _external=True)
-    asset = conf.asset()
-    amount_dec = assets.asset_int_to_dec(asset, conf.amount())
+    assert conf.withdrawal
+    asset = conf.withdrawal.asset
+    amount_dec = assets.asset_int_to_dec(asset, conf.withdrawal.amount)
     amount_str = assets.asset_dec_to_str(asset, amount_dec)
-    recipient = f'<span style="word-wrap:anywhere;word-break:break-all;"><span style="font-family:monospace">{conf.recipient()}</span></span>'
+    recipient = f'<span style="word-wrap:anywhere;word-break:break-all;"><span style="font-family:monospace">{conf.withdrawal.recipient}</span></span>'
     msg = f'''You have a pending withdrawal waiting!<br/><br/>
     Withdrawal recipient:
     {recipient}<br/><br/>

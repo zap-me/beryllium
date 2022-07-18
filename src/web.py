@@ -11,7 +11,7 @@ from flask.wrappers import Response
 from flask_security.decorators import roles_accepted
 
 from app_core import app, boolify, db, socketio
-from models import CryptoWithdrawal, FiatWithdrawal, User, Role, Topic, PushNotificationLocation, BrokerOrder, CryptoDeposit, FiatDeposit, KycRequest, FiatDbTransaction
+from models import User, Role, Topic, PushNotificationLocation, BrokerOrder, BalanceUpdate, KycRequest, FiatDbTransaction
 import email_utils
 from fcm import FCM
 from web_utils import bad_request, get_json_params, get_json_params_optional
@@ -185,14 +185,14 @@ def test_ws():
             else:
                 flash('Order not found', 'danger')
         elif event == 'fiat_deposit_update':
-            deposit = FiatDeposit.from_token(db.session, recipient)
+            deposit = BalanceUpdate.from_token(db.session, recipient)
             if deposit:
                 websocket.fiat_deposit_update_event(deposit)
                 flash('Event sent', 'success')
             else:
                 flash('Order not found', 'danger')
         elif event == 'crypto_deposit_update':
-            deposit = CryptoDeposit.from_token(db.session, recipient)
+            deposit = BalanceUpdate.from_token(db.session, recipient)
             if deposit:
                 websocket.crypto_deposit_update_event(deposit)
                 flash('Event sent', 'success')
@@ -324,11 +324,15 @@ def user_withdrawal():
             return return_response('please enter a token')
         with coordinator.lock:
             if type_ == WITHDRAWAL_TYPE_CRYPTO:
-                withdrawal = CryptoWithdrawal.from_token(db.session, token)
+                withdrawal = BalanceUpdate.from_token(db.session, token)
+                if not withdrawal:
+                    return return_response('Withdrawal not found')
+                assert withdrawal.crypto and withdrawal.type == withdrawal.TYPE_WITHDRAWAL
             else:
-                withdrawal = FiatWithdrawal.from_token(db.session, token)
-            if not withdrawal:
-                return return_response('Withdrawal not found')
+                withdrawal = BalanceUpdate.from_token(db.session, token)
+                if not withdrawal:
+                    return return_response('Withdrawal not found')
+                assert not withdrawal.crypto and withdrawal.type == withdrawal.TYPE_WITHDRAWAL
             if action == USER_WITHDRAWAL_SHOW:
                 flash(str(withdrawal.to_json()), 'primary')
             elif action == USER_WITHDRAWAL_CANCEL:

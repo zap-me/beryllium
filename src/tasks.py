@@ -10,7 +10,7 @@ import broker
 from task_manager import TaskManager
 import wallet
 from ln import LnRpc, _msat_to_sat
-from models import CryptoDeposit
+from models import BalanceUpdate
 import websocket
 
 logger = logging.getLogger(__name__)
@@ -90,7 +90,10 @@ def _process_ln_invoices_loop():
                         description = pay['description']
                         msat = pay['msatoshi']
                         sat = _msat_to_sat(msat)
-                        deposit = CryptoDeposit.from_wallet_reference(db.session, bolt11)
+                        deposit = BalanceUpdate.from_wallet_reference(db.session, bolt11)
+                        if not deposit or not deposit.crypto or deposit.type != deposit.TYPE_DEPOSIT or deposit.asset != assets.BTC.symbol:
+                            logger.error('{deposit.token} does not match BTC LN deposit!')
+                            continue
                         email = None
                         if deposit:
                             email = deposit.user.email

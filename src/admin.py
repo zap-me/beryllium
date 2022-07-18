@@ -11,7 +11,7 @@ from flask_login.utils import current_user
 from markupsafe import Markup
 
 from app_core import app, db
-from models import Role, User, ApiKey, Topic, PushNotificationLocation, Referral, BrokerOrder, ExchangeOrder, CryptoWithdrawal, CryptoDeposit, CryptoAddress, KycRequest, AplyId, FiatDbTransaction, FiatDeposit, FiatWithdrawal, WindcavePaymentRequest, PayoutRequest, CrownPayment, WithdrawalConfirmation
+from models import Role, User, ApiKey, Topic, PushNotificationLocation, Referral, BrokerOrder, ExchangeOrder, BalanceUpdate, CryptoAddress, KycRequest, AplyId, FiatDbTransaction, WindcavePaymentRequest, PayoutRequest, CrownPayment, WithdrawalConfirmation
 from security import security
 
 # helper functions/classes
@@ -146,32 +146,32 @@ def get_brokerorder_markets():
         for broker_order_market_a, broker_order_market_b in g.brokerorder_markets:
             yield broker_order_market_a, broker_order_market_b
 
-def get_cryptowithdrawal_statuses():
+def get_balanceupdate_types():
     # prevent database access when app is not yet ready
     if has_app_context():
-        if not hasattr(g, 'cyptowithdrawal_statuses'):
-            query = CryptoWithdrawal.query.with_entities(CryptoWithdrawal.status).distinct()
-            g.cryptowithdrawal_statuses = [(crypto_withdrawal.status, crypto_withdrawal.status) for crypto_withdrawal in query]
-        for crypto_withdrawal_status_a, crypto_withdrawal_status_b in g.cryptowithdrawal_statuses:
-            yield crypto_withdrawal_status_a, crypto_withdrawal_status_b
+        if not hasattr(g, 'balanceupdate_types'):
+            query = BalanceUpdate.query.with_entities(BalanceUpdate.type).distinct()
+            g.balanceupdate_types = [(balance_update.type, balance_update.type) for balance_update in query]
+        for balance_update_type_a, balance_update_type_b in g.balanceupdate_types:
+            yield balance_update_type_a, balance_update_type_b
 
-def get_cryptowithdrawal_assets():
+def get_balanceupdate_statuses():
     # prevent database access when app is not yet ready
     if has_app_context():
-        if not hasattr(g, 'cyptowithdrawal_assets'):
-            query = CryptoWithdrawal.query.with_entities(CryptoWithdrawal.asset).distinct()
-            g.cryptowithdrawal_assets = [(crypto_withdrawal.asset, crypto_withdrawal.asset) for crypto_withdrawal in query]
-        for crypto_withdrawal_asset_a, crypto_withdrawal_asset_b in g.cryptowithdrawal_assets:
-            yield crypto_withdrawal_asset_a, crypto_withdrawal_asset_b
+        if not hasattr(g, 'balanceupdate_statuses'):
+            query = BalanceUpdate.query.with_entities(BalanceUpdate.status).distinct()
+            g.balanceupdate_statuses = [(balance_update.status, balance_update.status) for balance_update in query]
+        for balance_update_status_a, balance_update_status_b in g.balanceupdate_statuses:
+            yield balance_update_status_a, balance_update_status_b
 
-def get_cryptodeposit_confirmed():
+def get_balanceupdate_assets():
     # prevent database access when app is not yet ready
     if has_app_context():
-        if not hasattr(g, 'cyptodeposit_confirmed'):
-            query = CryptoDeposit.query.with_entities(CryptoDeposit.confirmed).distinct()
-            g.cryptodeposit_confirmed = [(crypto_deposit.confirmed, crypto_deposit.confirmed) for crypto_deposit in query]
-        for crypto_deposit_confirmed_a, crypto_deposit_confirmed_b in g.cryptodeposit_confirmed:
-            yield crypto_deposit_confirmed_a, crypto_deposit_confirmed_b
+        if not hasattr(g, 'balanceupdate_assets'):
+            query = BalanceUpdate.query.with_entities(BalanceUpdate.asset).distinct()
+            g.balanceupdate_assets = [(balance_update.asset, balance_update.asset) for balance_update in query]
+        for balance_update_asset_a, balance_update_asset_b in g.balanceupdate_assets:
+            yield balance_update_asset_a, balance_update_asset_b
 
 class FilterByBrokerOrderStatusEqual(BaseSQLAFilter):
     def apply(self, query, value, alias=None):
@@ -195,138 +195,38 @@ class FilterByBrokerOrderMarketEqual(BaseSQLAFilter):
         # return a generator that is reloaded each time it is used
         return ReloadingIterator(get_brokerorder_markets)
 
-class FilterByCrytpoWithdrawalStatusEqual(BaseSQLAFilter):
+class FilterByBalanceUpdateTypeEqual(BaseSQLAFilter):
     def apply(self, query, value, alias=None):
-        return query.filter(CryptoWithdrawal.status == value)
+        return query.filter(BalanceUpdate.type == value)
 
     def operation(self):
         return 'equals'
 
     def get_options(self, view):
         # return a generator that is reloaded each time it is used
-        return ReloadingIterator(get_cryptowithdrawal_statuses)
+        return ReloadingIterator(get_balanceupdate_types)
 
-class FilterByCryptoWithdrawalAssetEqual(BaseSQLAFilter):
+class FilterByBalanceUpdateStatusEqual(BaseSQLAFilter):
     def apply(self, query, value, alias=None):
-        return query.filter(CryptoWithdrawal.asset == value)
+        return query.filter(BalanceUpdate.status == value)
 
     def operation(self):
         return 'equals'
 
     def get_options(self, view):
         # return a generator that is reloaded each time it is used
-        return ReloadingIterator(get_cryptowithdrawal_assets)
+        return ReloadingIterator(get_balanceupdate_statuses)
 
-class FilterByCryptoDepositConfirmedEqual(BaseSQLAFilter):
+class FilterByBalanceUpdateAssetEqual(BaseSQLAFilter):
     def apply(self, query, value, alias=None):
-        return query.filter(CryptoDeposit.confirmed == value)
+        return query.filter(BalanceUpdate.asset == value)
 
     def operation(self):
         return 'equals'
 
     def get_options(self, view):
         # return a generator that is reloaded each time it is used
-        return ReloadingIterator(get_cryptodeposit_confirmed)
-
-def get_cryptodeposit_assets():
-    # prevent database access when app is not yet ready
-    if has_app_context():
-        if not hasattr(g, 'cyptodeposit_assets'):
-            query = CryptoDeposit.query.with_entities(CryptoDeposit.asset).distinct()
-            g.cryptodeposit_assets = [(crypto_deposit.asset, crypto_deposit.asset) for crypto_deposit in query]
-        for crypto_deposit_asset_a, crypto_deposit_asset_b in g.cryptodeposit_assets:
-            yield crypto_deposit_asset_a, crypto_deposit_asset_b
-
-class FilterByCryptoDepositAssetEqual(BaseSQLAFilter):
-    def apply(self, query, value, alias=None):
-        return query.filter(CryptoDeposit.asset == value)
-
-    def operation(self):
-        return 'equals'
-
-    def get_options(self, view):
-        # return a generator that is reloaded each time it is used
-        return ReloadingIterator(get_cryptodeposit_assets)
-
-def get_fiatwithdrawal_statuses():
-    # prevent database access when app is not yet ready
-    if has_app_context():
-        if not hasattr(g, 'fiatwithdrawal_statuses'):
-            query = FiatWithdrawal.query.with_entities(FiatWithdrawal.status).distinct()
-            g.fiatwithdrawal_statuses = [(fiat_withdrawal.status, fiat_withdrawal.status) for fiat_withdrawal in query]
-        for fiat_withdrawal_status_a, fiat_withdrawal_status_b in g.fiatwithdrawal_statuses:
-            yield fiat_withdrawal_status_a, fiat_withdrawal_status_b
-
-class FilterByFiatWithdrawalStatusEqual(BaseSQLAFilter):
-    def apply(self, query, value, alias=None):
-        return query.filter(FiatWithdrawal.status == value)
-
-    def operation(self):
-        return 'equals'
-
-    def get_options(self, view):
-        # return a generator that is reloaded each time it is used
-        return ReloadingIterator(get_fiatwithdrawal_statuses)
-
-def get_fiatwithdrawal_assets():
-    # prevent database access when app is not yet ready
-    if has_app_context():
-        if not hasattr(g, 'fiatwithdrawal_assets'):
-            query = FiatWithdrawal.query.with_entities(FiatWithdrawal.asset).distinct()
-            g.fiatwithdrawal_assets = [(fiat_withdrawal.asset, fiat_withdrawal.asset) for fiat_withdrawal in query]
-        for fiat_withdrawal_asset_a, fiat_withdrawal_asset_b in g.fiatwithdrawal_assets:
-            yield fiat_withdrawal_asset_a, fiat_withdrawal_asset_b
-
-class FilterByFiatWithdrawalAssetEqual(BaseSQLAFilter):
-    def apply(self, query, value, alias=None):
-        return query.filter(FiatWithdrawal.asset == value)
-
-    def operation(self):
-        return 'equals'
-
-    def get_options(self, view):
-        # return a generator that is reloaded each time it is used
-        return ReloadingIterator(get_fiatwithdrawal_assets)
-
-def get_fiatdeposit_statuses():
-    # prevent database access when app is not yet ready
-    if has_app_context():
-        if not hasattr(g, 'fiatdeposit_statuses'):
-            query = FiatDeposit.query.with_entities(FiatDeposit.status).distinct()
-            g.fiatdeposit_statuses = [(fiat_deposit.status, fiat_deposit.status) for fiat_deposit in query]
-        for fiat_deposit_status_a, fiat_deposit_status_b in g.fiatdeposit_statuses:
-            yield fiat_deposit_status_a, fiat_deposit_status_b
-
-class FilterByFiatDepositStatusEqual(BaseSQLAFilter):
-    def apply(self, query, value, alias=None):
-        return query.filter(FiatDeposit.status == value)
-
-    def operation(self):
-        return 'equals'
-
-    def get_options(self, view):
-        # return a generator that is reloaded each time it is used
-        return ReloadingIterator(get_fiatdeposit_statuses)
-
-def get_fiatdeposit_assets():
-    # prevent database access when app is not yet ready
-    if has_app_context():
-        if not hasattr(g, 'fiatdeposit_assets'):
-            query = FiatDeposit.query.with_entities(FiatDeposit.asset).distinct()
-            g.fiatdeposit_assets = [(fiat_deposit.asset, fiat_deposit.asset) for fiat_deposit in query]
-        for fiat_deposit_asset_a, fiat_deposit_asset_b in g.fiatdeposit_assets:
-            yield fiat_deposit_asset_a, fiat_deposit_asset_b
-
-class FilterByFiatDepositAssetEqual(BaseSQLAFilter):
-    def apply(self, query, value, alias=None):
-        return query.filter(FiatDeposit.asset == value)
-
-    def operation(self):
-        return 'equals'
-
-    def get_options(self, view):
-        # return a generator that is reloaded each time it is used
-        return ReloadingIterator(get_fiatdeposit_assets)
+        return ReloadingIterator(get_balanceupdate_assets)
 
 def get_payoutrequest_statuses():
     # prevent database access when app is not yet ready
@@ -536,41 +436,15 @@ class BrokerOrderModelView(RestrictedModelView):
                       FilterByBrokerOrderStatusEqual(BrokerOrder.status, 'Search Status'),
                       FilterByBrokerOrderMarketEqual(BrokerOrder.market, 'Search Market')]
 
-class CryptoWithdrawalModelView(RestrictedModelView):
+class BalanceUpdateModelView(RestrictedModelView):
     can_create = False
     can_delete = False
     can_edit = False
 
-    column_filters = [DateBetweenFilter(CryptoWithdrawal.date, 'Search Date'),
-                      FilterByCrytpoWithdrawalStatusEqual(CryptoWithdrawal.status, 'Search Status'),
-                      FilterByCryptoWithdrawalAssetEqual(CryptoWithdrawal.asset, 'Search Asset')]
-
-class CryptoDepositModelView(RestrictedModelView):
-    can_create = False
-    can_delete = False
-    can_edit = False
-
-    column_filters = [DateBetweenFilter(CryptoDeposit.date, 'Search Date'),
-                      FilterByCryptoDepositConfirmedEqual(CryptoDeposit.confirmed, 'Search Confirmed'),
-                      FilterByCryptoDepositAssetEqual(CryptoDeposit.asset, 'Search Asset')]
-
-class FiatWithdrawalModelView(RestrictedModelView):
-    can_create = False
-    can_delete = False
-    can_edit = False
-
-    column_filters = [DateBetweenFilter(FiatWithdrawal.date, 'Search Date'),
-                      FilterByFiatWithdrawalStatusEqual(FiatWithdrawal.status, 'Search Status'),
-                      FilterByFiatWithdrawalAssetEqual(FiatWithdrawal.asset, 'Search Asset')]
-
-class FiatDepositModelView(RestrictedModelView):
-    can_create = False
-    can_delete = False
-    can_edit = False
-
-    column_filters = [DateBetweenFilter(FiatDeposit.date, 'Search Date'),
-                      FilterByFiatDepositStatusEqual(FiatDeposit.status, 'Search Status'),
-                      FilterByFiatDepositAssetEqual(FiatDeposit.asset, 'Search Asset')]
+    column_filters = [DateBetweenFilter(BalanceUpdate.date, 'Search Date'),
+                      FilterByBalanceUpdateTypeEqual(BalanceUpdate.type, 'Search Type'),
+                      FilterByBalanceUpdateAssetEqual(BalanceUpdate.asset, 'Search Asset'),
+                      FilterByBalanceUpdateStatusEqual(BalanceUpdate.status, 'Search Status')]
 
 class PayoutRequestModelView(RestrictedModelView):
     can_create = False
@@ -579,7 +453,7 @@ class PayoutRequestModelView(RestrictedModelView):
 
     column_filters = [DateBetweenFilter(PayoutRequest.date, 'Search Date'),
                       FilterByPayoutRequestStatusEqual(PayoutRequest.status, 'Search Status'),
-                      FilterByPayoutRequestAssetEqual(FiatDeposit.asset, 'Search Asset')]
+                      FilterByPayoutRequestAssetEqual(PayoutRequest.asset, 'Search Asset')]
 
 class FiatDbTransactionModelView(RestrictedModelView):
     can_create = False
@@ -620,11 +494,8 @@ admin.add_view(RestrictedModelView(Topic, db.session, category='Admin'))
 admin.add_view(PushNotificationLocationModelView(PushNotificationLocation, db.session, category='Admin'))
 admin.add_view(BrokerOrderModelView(BrokerOrder, db.session, category='Admin'))
 admin.add_view(RestrictedModelView(ExchangeOrder, db.session, category='Admin'))
-admin.add_view(CryptoWithdrawalModelView(CryptoWithdrawal, db.session, category='Admin'))
-admin.add_view(CryptoDepositModelView(CryptoDeposit, db.session, category='Admin'))
+admin.add_view(BalanceUpdateModelView(BalanceUpdate, db.session, category='Admin'))
 admin.add_view(RestrictedModelView(CryptoAddress, db.session, category='Admin'))
-admin.add_view(FiatWithdrawalModelView(FiatWithdrawal, db.session, category='Admin'))
-admin.add_view(FiatDepositModelView(FiatDeposit, db.session, category='Admin'))
 admin.add_view(RestrictedModelView(WindcavePaymentRequest, db.session, category='Admin'))
 admin.add_view(RestrictedModelView(CrownPayment, db.session, category='Admin'))
 admin.add_view(PayoutRequestModelView(PayoutRequest, db.session, category='Admin'))

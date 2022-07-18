@@ -561,7 +561,7 @@ def crypto_withdrawal_confirm(withdrawal_id: str):
     return _crypto_withdrawal_confirm_req(withdrawal_id, code)
 
 def crypto_deposits(asset: str, subaccount_id: str):
-    deposits = []
+    deposits: list[DassetDeposit] = []
     deps = _crypto_deposits_pending_req(asset, subaccount_id)
     if deps:
         for dep in deps:

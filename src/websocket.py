@@ -7,7 +7,7 @@ from flask_socketio import Namespace, emit, join_room, leave_room
 from app_core import SERVER_VERSION, CLIENT_VERSION_DEPLOYED, db, socketio
 from web_utils import check_auth
 from security import tf_enabled_check
-from models import BrokerOrder, CryptoDeposit, CryptoWithdrawal, FiatDeposit, FiatWithdrawal, User, ApiKey
+from models import BrokerOrder, BalanceUpdate, User, ApiKey
 
 logger = logging.getLogger(__name__)
 ws_sids = {}
@@ -69,42 +69,42 @@ def broker_order_new_event(broker_order: BrokerOrder):
     socketio.emit('broker_order_new', data, json=True, room=broker_order.user.email, namespace=NS)
     logger.info('broker_order_new: %s', broker_order.token)
 
-def crypto_deposit_update_event(crypto_deposit: CryptoDeposit):
+def crypto_deposit_update_event(crypto_deposit: BalanceUpdate):
     data = json.dumps(crypto_deposit.to_json())
     socketio.emit('crypto_deposit_update', data, json=True, room=crypto_deposit.user.email, namespace=NS)
     logger.info('crypto_deposit_update: %s', crypto_deposit.token)
 
-def crypto_deposit_new_event(crypto_deposit: CryptoDeposit):
+def crypto_deposit_new_event(crypto_deposit: BalanceUpdate):
     data = json.dumps(crypto_deposit.to_json())
     socketio.emit('crypto_deposit_new', data, json=True, room=crypto_deposit.user.email, namespace=NS)
     logger.info('crypto_deposit_new: %s', crypto_deposit.token)
 
-def crypto_withdrawal_update_event(crypto_withdrawal: CryptoWithdrawal):
+def crypto_withdrawal_update_event(crypto_withdrawal: BalanceUpdate):
     data = json.dumps(crypto_withdrawal.to_json())
     socketio.emit('crypto_withdrawal_update', data, json=True, room=crypto_withdrawal.user.email, namespace=NS)
     logger.info('crypto_withdrawal_update: %s', crypto_withdrawal.token)
 
-def crypto_withdrawal_new_event(crypto_withdrawal: CryptoWithdrawal):
+def crypto_withdrawal_new_event(crypto_withdrawal: BalanceUpdate):
     data = json.dumps(crypto_withdrawal.to_json())
     socketio.emit('crypto_withdrawal_new', data, json=True, room=crypto_withdrawal.user.email, namespace=NS)
     logger.info('crypto_withdrawal_new: %s', crypto_withdrawal.token)
 
-def fiat_deposit_update_event(fiat_deposit: FiatDeposit):
+def fiat_deposit_update_event(fiat_deposit: BalanceUpdate):
     data = json.dumps(fiat_deposit.to_json())
     socketio.emit('fiat_deposit_update', data, json=True, room=fiat_deposit.user.email, namespace=NS)
     logger.info('fiat_deposit_update: %s', fiat_deposit.token)
 
-def fiat_deposit_new_event(fiat_deposit: FiatDeposit):
+def fiat_deposit_new_event(fiat_deposit: BalanceUpdate):
     data = json.dumps(fiat_deposit.to_json())
     socketio.emit('fiat_deposit_new', data, json=True, room=fiat_deposit.user.email, namespace=NS)
     logger.info('fiat_deposit_new: %s', fiat_deposit.token)
 
-def fiat_withdrawal_update_event(fiat_withdrawal: FiatWithdrawal):
+def fiat_withdrawal_update_event(fiat_withdrawal: BalanceUpdate):
     data = json.dumps(fiat_withdrawal.to_json())
     socketio.emit('fiat_withdrawal_update', data, json=True, room=fiat_withdrawal.user.email, namespace=NS)
     logger.info('fiat_withdrawal_update: %s', fiat_withdrawal.token)
 
-def fiat_withdrawal_new_event(fiat_withdrawal: FiatWithdrawal):
+def fiat_withdrawal_new_event(fiat_withdrawal: BalanceUpdate):
     data = json.dumps(fiat_withdrawal.to_json())
     socketio.emit('fiat_withdrawal_new', data, json=True, room=fiat_withdrawal.user.email, namespace=NS)
     logger.info('fiat_withdrawal_new: %s', fiat_withdrawal.token)
