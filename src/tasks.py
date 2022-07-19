@@ -105,16 +105,18 @@ def _process_ln_invoices_loop():
             gevent.sleep(5, False)
 
 def rebalance_channels(oscid: str, iscid: str, amount: int):
-    gevent.sleep(10, False)  # HACK: wait for the webserver to start
     LnRpc().rebalance_channel(oscid, iscid, amount)
     send_email('Channel Rebalance Successful', 'Rebalanced {0} -> {1} with {2} sats'.format(oscid, iscid, amount))
 
-def send_email(title: str, msg: str, receiving_email: str | None = None):
-    gevent.sleep(10, False)  # HACK: wait for the webserver to start
-    email_utils.send_email(logger, title, msg, receiving_email)
+def send_email_task(subject: str, msg: str, recipient: str | None = None, attachment: str | None = None) -> bool:
+    if not recipient:
+        recipient = app.config["ADMIN_EMAIL"]
+    assert recipient
+    if app.config["USE_SENDGRID"]:
+        return email_utils.send_email_sendgrid(logger, subject, msg, recipient, attachment)
+    return email_utils.send_email_postfix(logger, subject, msg, recipient, attachment)
 
 def pay_to_invoice(invoice_str: str):
-    gevent.sleep(10, False)  # HACK: wait for the ln server to start
     LnRpc().pay(invoice_str)
 #
 # Init tasks
