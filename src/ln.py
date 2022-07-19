@@ -169,6 +169,9 @@ class LnRpc():
                 results.append({"paid_at": paid_at, "paid_date": paid_date, "status": status, "amount_msat": amount_msat, "amount_sats": amount_sats, "amount_sent_msat": amount_sent_msat, "amount_sent_sats": amount_sent_sats, "destination": destination, "label": label, "bolt11": bolt11, "payment_preimage": payment_preimage, "payment_hash": payment_hash, "groupid": groupid, "fees_sats": fees_sats})
         return results
 
+    def disconnect_peer(self, peer_id):
+        return self.instance.disconnect(peer_id)
+
     #
     # Onchain
     #

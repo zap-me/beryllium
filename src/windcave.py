@@ -87,9 +87,9 @@ def auth_header():
 def windcave_create_session(amount_cents, token, expiry):
     body = {'type': 'purchase', 'amount': moneyfmt(decimal.Decimal(amount_cents) / decimal.Decimal(100), sep=''), 'currency': 'NZD', 'merchantReference': token}
     body['methods'] = ['account2account']
-    expiry = expiry.replace(tzinfo=tz.tzlocal()) # set time zone to local (datetime objects are 'naive' by default)
-    expiry = expiry.astimezone(tz.tzutc()) # convert to UTC
-    expiry = expiry.replace(microsecond=0) # strip microsecond to placate windcave (RFC 3339)
+    expiry = expiry.replace(tzinfo=tz.tzlocal())  # set time zone to local (datetime objects are 'naive' by default)
+    expiry = expiry.astimezone(tz.tzutc())  # convert to UTC
+    expiry = expiry.replace(microsecond=0)  # strip microsecond to placate windcave (RFC 3339)
     body['expires'] = expiry.isoformat()
     callback_url = url_for('payments.payment', token=token, _external=True)
     body['callbackUrls'] = {'approved': callback_url, 'declined': callback_url, 'cancelled': callback_url}

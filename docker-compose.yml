@@ -145,13 +145,13 @@ services:
   mail:
     container_name: mail
     environment:
-      ALLOWED_SENDER_DOMAINS: beryllium-test.zap.me
-      HOSTNAME: mail
+      ALLOWED_SENDER_DOMAINS: ${EMAIL_SENDER} ${SERVER_NAME}
+      HOSTNAME: ${SERVER_NAME:?SERVER_NAME unset}
     image: boky/postfix
     expose:
       - "587"
     volumes:
-    - ./host/keys:/etc/opendkim/keys
+    - ./web/dkim/keys:/etc/opendkim/keys
 
 volumes:
   pgdata:

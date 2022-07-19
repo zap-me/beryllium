@@ -4,7 +4,7 @@ from dateutil.relativedelta import relativedelta
 from sqlalchemy import func, and_
 
 from flask import Blueprint, render_template, redirect
-from flask_security import roles_accepted # pyright: ignore [reportPrivateImportUsage]
+from flask_security.decorators import roles_accepted
 
 from models import Role, User, BrokerOrder
 import dasset
@@ -42,9 +42,9 @@ def user_counting(table, start_date, end_date):
     return result
 
 def broker_order_amount(table, start_date, end_date, market):
-    result = table.query.filter(table.market == market)\
-            .filter(and_(table.date >= str(start_date), table.date < str(end_date)))\
-            .with_entities(func.sum(table.base_amount)).scalar()
+    result = table.query.filter(table.market == market) \
+        .filter(and_(table.date >= str(start_date), table.date < str(end_date))) \
+        .with_entities(func.sum(table.base_amount)).scalar()
     if not result:
         result = 0
     asset_symbol = market.split('-')[0]
@@ -53,8 +53,8 @@ def broker_order_amount(table, start_date, end_date, market):
     return result
 
 def broker_order_amount_lifetime(table, market):
-    result = table.query.filter(table.market == market)\
-            .with_entities(func.sum(table.base_amount)).scalar()
+    result = table.query.filter(table.market == market) \
+        .with_entities(func.sum(table.base_amount)).scalar()
     if not result:
         result = 0
     asset_symbol = market.split('-')[0]
@@ -63,16 +63,16 @@ def broker_order_amount_lifetime(table, market):
     return result
 
 def broker_order_count(table, start_date, end_date, market):
-    result = table.query.filter(table.market == market)\
-            .filter(and_(table.date >= str(start_date), table.date < str(end_date)))\
-            .count()
+    result = table.query.filter(table.market == market) \
+        .filter(and_(table.date >= str(start_date), table.date < str(end_date))) \
+        .count()
     if not result:
         result = 0
     return result
 
 def broker_order_count_lifetime(table, market):
-    result = table.query.filter(table.market == market)\
-            .count()
+    result = table.query.filter(table.market == market) \
+        .count()
     if not result:
         result = 0
     return result
@@ -85,7 +85,13 @@ def dashboard():
 @reporting.route("/dashboard_general")
 @roles_accepted(Role.ROLE_ADMIN, Role.ROLE_FINANCE)
 def dashboard_general():
-    return render_template('reporting/dashboard_general.html', dasset_balances=dasset.account_balances())
+    balances = dasset.account_balances()
+    balances_formatted = []
+    if balances:
+        for balance in balances:
+            balance_formatted = dict(symbol=balance.symbol, available=assets.asset_dec_to_str(balance.symbol, balance.available), total=assets.asset_dec_to_str(balance.symbol, balance.total))
+            balances_formatted.append(balance_formatted)
+    return render_template('reporting/dashboard_general.html', dasset_balances=balances_formatted)
 
 @reporting.route("/dashboard_user")
 @roles_accepted(Role.ROLE_ADMIN, Role.ROLE_FINANCE)

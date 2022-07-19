@@ -152,7 +152,7 @@ def _parse_withdrawal_2fa(item):
 def _parse_withdrawal(item):
     try:
         return _parse_withdrawal_full(item)
-    except:
+    except Exception:
         return _parse_withdrawal_2fa(item)
 
 #
@@ -504,7 +504,7 @@ def account_balances(asset: str | None = None, subaccount_id: str | None = None)
         for item in assets.ASSETS.values():
             if subaccount_id and assets.asset_is_fiat(item.symbol):
                 continue
-            balance = DassetBalance(symbol=item.symbol, name=item.name, total=decimal.Decimal(9999), available=decimal.Decimal(9999), decimals=item.decimals)
+            balance = DassetBalance(symbol=item.symbol, name=item.name, total=decimal.Decimal('9999.01234567890123456789'), available=decimal.Decimal('9999.01234567890123456789'), decimals=item.decimals)
             balances.append(balance)
         return balances
     return _balances_req(asset, subaccount_id)

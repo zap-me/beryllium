@@ -8,17 +8,16 @@
                     <form method="POST">
                         <h6>Device Name:</h6>
                         <span>{{ req.device_name | e }}</span>
+                        <!-- not using permissions
                         <h6>Permissions:</h6>
                         <div class="form-group">
                             {% for perm in perms %}
-                                <input type="checkbox"
-                                       id="perms{{ loop.index }}"
-                                       name="perms"
-                                       value="{{ perm }}"/>
+                                <input type="checkbox" id="perms{{ loop.index }}" name="perms" value="{{ perm }}"/>
                                 <label for="perms{{ loop.index }}">{{ perm }}</label>
                                 <br />
                             {% endfor %}
                         </div>
+                        -->
                         {% if current_user.tf_primary_method  %}
                             <div class="form-group">
                                 <input type="text" id="tf_code" name="tf_code" value="" />

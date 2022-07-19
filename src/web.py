@@ -6,8 +6,9 @@ import math
 import time
 
 import gevent
-from flask import redirect, render_template, request, flash, jsonify, Response # pyright: ignore [reportPrivateImportUsage]
-from flask_security import roles_accepted # pyright: ignore [reportPrivateImportUsage]
+from flask import redirect, render_template, request, flash, jsonify
+from flask.wrappers import Response
+from flask_security.decorators import roles_accepted
 
 from app_core import app, boolify, db, socketio
 from models import CryptoWithdrawal, FiatWithdrawal, User, Role, Topic, PushNotificationLocation, BrokerOrder, CryptoDeposit, FiatDeposit, KycRequest, FiatDbTransaction
@@ -23,7 +24,7 @@ from payments_endpoint import payments
 from kyc_endpoint import kyc
 from ln_wallet_endpoint import ln_wallet
 import websocket
-import admin # import to register flask admin endpoints
+import admin  # import to register flask admin endpoints
 import dasset
 import assets
 import kyc_core
@@ -260,20 +261,22 @@ def user_balance():
         if action == USER_BALANCE_SHOW:
             balances = fiatdb_core.user_balances(db.session, user)
             for key, val in balances.items():
-                balances[key] = assets.asset_int_to_dec(key, val)
+                val = assets.asset_int_to_dec(key, val)
+                balances[key] = assets.asset_dec_to_str(key, val)
             flash(str(balances), 'primary')
         elif action in (USER_BALANCE_CREDIT, USER_BALANCE_DEBIT):
             if asset not in asset_names:
                 return return_response('Invalid asset')
             try:
                 amount_dec = decimal.Decimal(amount)
-            except:
+            except Exception:
                 amount_dec = decimal.Decimal(0)
             if amount_dec <= decimal.Decimal(0):
                 return return_response('Invalid amount')
             amount_int = assets.asset_dec_to_int(asset, amount_dec)
             balance = fiatdb_core.user_balance(db.session, asset, user)
             balance = assets.asset_int_to_dec(asset, balance)
+            balance = assets.asset_dec_to_str(asset, balance)
             flash(f'current balance: {balance} {asset}', 'primary')
             fiatdb_action = FiatDbTransaction.ACTION_CREDIT if action == USER_BALANCE_CREDIT else FiatDbTransaction.ACTION_DEBIT
             ftx = fiatdb_core.tx_create(user, fiatdb_action, asset, amount_int, desc)
@@ -281,6 +284,7 @@ def user_balance():
             db.session.commit()
             balance = fiatdb_core.user_balance(db.session, asset, user)
             balance = assets.asset_int_to_dec(asset, balance)
+            balance = assets.asset_dec_to_str(asset, balance)
             flash(f'new balance: {balance} {asset}', 'success')
         elif action == USER_BALANCE_SWEEP:
             if not user.dasset_subaccount:

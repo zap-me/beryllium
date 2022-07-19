@@ -6,7 +6,8 @@ RUN apt-get install -y build-essential python3-dev python3-setuptools
 COPY ./requirements.txt /tmp/requirements.txt
 RUN pip3 install --upgrade pip
 RUN pip3 install -r /tmp/requirements.txt
-COPY ./rebalance.py /etc/bundledplugins/
+RUN mkdir /opt/lightningd_plugins
+COPY ./rebalance.py /opt/lightningd_plugins/
 COPY ./config.j2 /config.j2
 # plumbing for --wallet replica
 RUN mkdir /root/.lightning_replica

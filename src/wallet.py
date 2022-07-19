@@ -125,7 +125,7 @@ def incoming_available(asset: str, l2_network: str | None, amount_dec: Decimal) 
 def funds_available(asset: str, l2_network: str | None, amount_dec: Decimal) -> bool:
     if _is_ln(asset, l2_network):
         funds = LnRpc().list_funds()
-        sats = assets.asset_dec_to_int(asset, amount_dec * Decimal('1.01')) # add a 1% buffer for fees
+        sats = assets.asset_dec_to_int(asset, amount_dec * Decimal('1.01'))  # add a 1% buffer for fees
         logger.info('required: %d sats, largest channel: %d sats', sats, funds['sats_largest_channel'])
         return funds['sats_largest_channel'] >= sats
     if _is_btc_chain(asset, l2_network):
@@ -189,7 +189,7 @@ def withdrawal_completed(asset: str, l2_network: str | None, wallet_reference: s
         txs = result['transactions']
         for tx in txs:
             if tx['hash'] == wallet_reference:
-                return tx['blockheight'] >= 0 # tx is in a block
+                return tx['blockheight'] >= 0  # tx is in a block
         return False
     return False
 
@@ -274,7 +274,7 @@ def deposit_completed(asset: str, l2_network: str | None, wallet_reference: str)
         txs = result['transactions']
         for tx in txs:
             if tx['hash'] == wallet_reference:
-                return tx['blockheight'] >= 0 # tx is in a block
+                return tx['blockheight'] >= 0  # tx is in a block
         return False
     return False
 
@@ -290,7 +290,7 @@ def _get_raw_tx(service_url, txid, blockhash=None):
         if blockhash:
             return bitcoind_rpc_url(service_url, 'getrawtransaction', txid, True, blockhash)
         return bitcoind_rpc_url(service_url, 'getrawtransaction', txid, True)
-    except:
+    except Exception:
         return None
 
 def _get_raw_tx_using_bitaps_blockhash(service_url, txid):
@@ -299,7 +299,7 @@ def _get_raw_tx_using_bitaps_blockhash(service_url, txid):
         tx = requests.get(f'https://api.bitaps.com/btc/{network}/blockchain/transaction/{txid}').json()
         blockhash = tx['data']['blockHash']
         return _get_raw_tx(service_url, txid, blockhash)
-    except:
+    except Exception:
         return None
 
 def _get_raw_tx_using_loop(service_url, txid, max_block_history):
@@ -315,7 +315,7 @@ def _get_raw_tx_using_loop(service_url, txid, max_block_history):
     return None
 
 def btc_transactions_index():
-    max_block_history = 128 # 1 day
+    max_block_history = 128  # 1 day
     service_url = bitcoind_service_url()
     rpc = LnRpc()
     try:

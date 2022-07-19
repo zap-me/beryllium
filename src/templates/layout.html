@@ -25,8 +25,17 @@
             <a class="navbar-brand" href="/">
                 <img src="{{ config['LOGO_URL_SRC'] }}" alt="logo" height="40" />
             </a>
-            <div class="collapse navbar-collapse" id="navbarNavDropdown">
-                <ul class="navbar-nav">
+            <button class="navbar-toggler"
+                    type="button"
+                    data-toggle="collapse"
+                    data-target="#navbarSupportedContent"
+                    aria-controls="navbarSupportedContent"
+                    aria-expanded="false"
+                    aria-label="Toggle navigation">
+                <i class="fas fa-solid fa-bars"></i>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarSupportedContent">
+                <ul class="navbar-nav mr-auto">
                     {% if request.blueprint == "ln_wallet" %}
                         {% if request.endpoint != "ln_wallet.ln_index" %}
                             <a class="btn {% if request.endpoint == 'ln_wallet.ln_index' %}btn-primary{% else %}btn-secondary{% endif %}"
@@ -37,33 +46,36 @@
                            href="dashboard_general"><i class="glyphicon glyphicon-chevron-left"></i>General</a>&nbsp
                         <a class="btn {% if request.endpoint == 'reporting.dashboard_user' %}btn-primary{% else %}btn-secondary{% endif %}"
                            href="dashboard_user"><i class="glyphicon glyphicon-chevron-left"></i>Users</a>&nbsp
-                        <a class="btn {% if request.endpoint == 'reporting.dashboard_report_broker_user' %}btn-primary{% else %}btn-secondary{% endif %}"
+                        <a class="btn {% if request.endpoint == 'reporting.dashboard_report_broker_order' %}btn-primary{% else %}btn-secondary{% endif %}"
                            href="dashboard_report_broker_order"><i class="glyphicon glyphicon-chevron-left"></i>Broker Orders</a>&nbsp
                     {% endif %}
                 </ul>
-            </div>
-            {% if current_user.is_authenticated  %}
                 <span class="navbar-text">
-                    {{ current_user.email }}
-                    <a href="{{ url_for('security.two_factor_setup') }}"
-                       {% if not current_user.tf_primary_method  %}
-                       title="Two Factor Authentication not setup!">
-                        <i class="fas fa-exclamation-triangle text-danger"></i>
-                    {% else %}
-                        title="Two Factor Authentication">
-                        <i class="fas fa-shield-alt text-success"></i>
-                    {% endif %}
-                </a>
-                &nbsp
+                    {% if current_user.is_authenticated %}
+                        {{ current_user.email }}
+                        <a href="{{ url_for('security.two_factor_setup') }}"
+                           {% if not current_user.tf_primary_method %}
+                           title="Two Factor Authentication not setup!">
+                            <i class="fas fa-exclamation-triangle text-danger"></i>
+                        {% else %}
+                            title="Two Factor Authentication">
+                            <i class="fas fa-shield-alt text-success"></i>
+                        {% endif %}
+                    </a>
+                {% endif %}
+                &nbsp;
             </span>
-            <button class="btn btn-primary" type="button" id="btn-logout"/>Logout</button>
-        {% else %}
-            <button class="btn btn-primary" type="button" id="btn-login"/>Login</button>
-        {% endif %}
+            <span class="form-inline">
+                {% if current_user.is_authenticated %}
+                    <button class="btn btn-primary" type="button" id="btn-logout"/>Logout</button>
+                {% else %}
+                    <button class="btn btn-primary" type="button" id="btn-login"/>Login</button>
+                {% endif %}
+            </span>
+        </div>
     </nav>
 </head>
 <body>
-    <br />
     {%- with messages = get_flashed_messages(with_categories=true) -%}
         {% if messages %}
             <div id="flashes" class="container-sm">
@@ -71,13 +83,12 @@
                     <div class="alert alert-{{ category }}" role="alert">{{ message }}</div>
                 {% endfor %}
             </div>
-            <br />
         {% endif %}
     {%- endwith %}
     <div id="navigation" class="container-sm">
         {% block navigation %}{% endblock %}
     </div>
-    <div id="content" class="container-sm">
+    <div id="content" class="container-sm m-2">
         {% block content %}{% endblock %}
     </div>
     <div id="footer" class="container">

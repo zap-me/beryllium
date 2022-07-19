@@ -143,7 +143,7 @@ def user_two_factor_enabled_check():
     if not user:
         time.sleep(5)
         return bad_request(web_utils.AUTH_FAILED)
-    if not flask_security.verify_password(password, user.password): # pyright: ignore [reportPrivateImportUsage]
+    if not flask_security.utils.verify_password(password, user.password):
         time.sleep(5)
         return bad_request(web_utils.AUTH_FAILED)
     tf_code_send(user)
@@ -167,7 +167,7 @@ def api_key_create():
     if not user:
         time.sleep(5)
         return bad_request(web_utils.AUTH_FAILED)
-    if not flask_security.verify_password(password, user.password): # pyright: ignore [reportPrivateImportUsage]
+    if not flask_security.utils.verify_password(password, user.password):
         time.sleep(5)
         return bad_request(web_utils.AUTH_FAILED)
     if tf_enabled_check(user) and not tf_code_validate(user, tf_code):
@@ -354,7 +354,7 @@ def user_update_email_confirm(token=None):
             return bad_request(web_utils.AUTH_FAILED)
         user = req.user
         old_email = user.email
-        user.email = req.email # pyright: ignore [reportGeneralTypeIssues]  - I dont know!!!
+        user.email = req.email  # pyright: ignore [reportGeneralTypeIssues]  - I dont know!!!
         db.session.add(user)
         db.session.delete(req)
         db.session.commit()
@@ -376,7 +376,7 @@ def user_update_password():
     if not verified_password:
         return bad_request(web_utils.INCORRECT_PASSWORD)
     # set the new_password:
-    if flask_security.password_length_validator(new_password) or flask_security.password_complexity_validator(new_password, True) or flask_security.password_breached_validator(new_password): # pyright: ignore [reportPrivateImportUsage]
+    if flask_security.utils.password_length_validator(new_password) or flask_security.utils.password_complexity_validator(new_password, True) or flask_security.utils.password_breached_validator(new_password):
         return bad_request(web_utils.WEAK_PASSWORD)
     user.password = encrypt_password(new_password)
     db.session.add(user)
@@ -641,7 +641,7 @@ def crypto_deposit_recipient_req():
     subaccount = _user_subaccount_get_or_create(db.session, api_key.user)
     if not subaccount:
         return bad_request(web_utils.FAILED_EXCHANGE)
-    db.session.commit() # commit early so we only create subaccount once
+    db.session.commit()  # commit early so we only create subaccount once
     # create address
     crypto_address = CryptoAddress.from_asset(db.session, api_key.user, asset)
     if not crypto_address:

@@ -17,7 +17,7 @@ from app_core import MISSING_VITAL_SETTING, app, db
 from models import User, Role, Permission, Topic
 from security import user_datastore
 
-logger = logging.getLogger() # root log handler
+logger = logging.getLogger()  # root log handler
 
 def teardown_logging():
     # fix this bug: https://bugs.python.org/issue21149
@@ -37,7 +37,7 @@ def add_user(email, password):
 def create_role(name, desc):
     role = Role.from_name(db.session, name)
     if not role:
-        role = Role(name=name, description=desc) # pyright: ignore [reportGeneralTypeIssues]
+        role = Role(name=name, description=desc)  # pyright: ignore [reportGeneralTypeIssues]
     else:
         role.description = desc
     db.session.add(role)
@@ -124,7 +124,7 @@ if __name__ == "__main__":
         signal.signal(signal.SIGINT, sigint_handler)
 
         logger.info("starting greenlets")
-        web_greenlet = web.WebGreenlet(g_exception) # pyright: ignore [reportGeneralTypeIssues]
+        web_greenlet = web.WebGreenlet(g_exception)  # pyright: ignore [reportGeneralTypeIssues]
         web_greenlet.start()
         while KEEP_RUNNING:
             gevent.sleep(1)

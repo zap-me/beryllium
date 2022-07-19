@@ -69,7 +69,7 @@ def update_withdrawal(asset: str, token: str):
 #
 
 def _process_ln_invoices_loop():
-    gevent.sleep(10, False) # HACK: wait for the webserver to start
+    gevent.sleep(10, False)  # HACK: wait for the ln server to start
     lastpay_index = 0
     while True:
         try:
@@ -78,7 +78,7 @@ def _process_ln_invoices_loop():
             pay, err = wallet.ln_any_deposit_completed(lastpay_index)
             if err:
                 logger.debug('wait_any_invoice failed: "%s"', err)
-                gevent.sleep(2, False) # probably timeout so we wait a short time before polling again
+                gevent.sleep(2, False)  # probably timeout so we wait a short time before polling again
             else:
                 logger.info('wait_any_invoice: %s', pay)
                 with app.app_context():

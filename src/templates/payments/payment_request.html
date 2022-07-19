@@ -62,5 +62,5 @@
     </div>
 {% endblock %}
 {% block scripts %}
-    <script data-interstitial={{ interstitial | tojson }} data-completed={{ completed | tojson }} data-cancelled={{ cancelled | tojson }} data-windcave-url={{ req.windcave_url | tojson }} src="{{ url_for('static',filename='assets/js_custom/payment_request.js') }}"></script>
+    <script data-interstitial={{ interstitial if interstitial else False | tojson }} data-completed={{ completed if completed else False | tojson }} data-cancelled={{ cancelled if cancelled else False | tojson }} data-windcave-url="{{ req.windcave_url if req else '' }}" src="{{ url_for('static',filename='assets/js_custom/payment_request.js') }}"></script>
 {% endblock %}

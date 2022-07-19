@@ -1,7 +1,7 @@
 import logging
 
 from flask import Blueprint, request, render_template, flash, redirect, url_for
-from flask_security import roles_accepted # pyright: ignore [reportPrivateImportUsage]
+from flask_security.decorators import roles_accepted
 
 from app_core import db, limiter
 from models import PayoutRequest, PayoutGroup, WindcavePaymentRequest, Role

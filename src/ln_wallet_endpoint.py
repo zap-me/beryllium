@@ -1,8 +1,9 @@
 import logging
 import secrets
 
-from flask import Blueprint, render_template, request, flash, Markup, jsonify # pyright: ignore [reportPrivateImportUsage]
-from flask_security import roles_accepted # pyright: ignore [reportPrivateImportUsage]
+from flask import Blueprint, render_template, request, flash, jsonify
+from markupsafe import Markup
+from flask_security.decorators import roles_accepted
 
 from utils import qrcode_svg_create
 from web_utils import bad_request
@@ -199,6 +200,30 @@ def channel_opener():
         except Exception as e:
             flash(Markup(e.args[0]), 'danger')
     return render_template('lightning/channel_opener.html', funds_dict=LnRpc().list_funds())
+
+@ln_wallet.route('/peer_management', methods=['GET', 'POST'])
+@roles_accepted(Role.ROLE_ADMIN)
+def peer_management():
+    rpc = LnRpc()
+    if request.method == 'POST':
+        if request.form['form-name'] == 'peer_close_form':
+            peer_id = request.form['peerId']
+            try:
+                LnRpc().disconnect_peer(peer_id)
+                flash(Markup(f'successfully disconnected id: {peer_id}'), 'success')
+            except Exception as e:
+                flash(Markup(f'{e}'), 'danger')
+        elif request.form['form-name'] == 'peer_connect_form':
+            peer_id = request.form['peerId']
+            try:
+                rpc = LnRpc()
+                rpc.connect_node(peer_id)
+                node_id = peer_id.split('@')
+                flash(Markup(f'successfully connected peer: {node_id[0]}'), 'success')
+            except Exception as e:
+                flash(Markup(f'{e}'), 'danger')
+    peers = rpc.list_peers()['peers']
+    return render_template('lightning/peer_management.html', peers=peers)
 
 @ln_wallet.route('/create_psbt', methods=['GET', 'POST'])
 @roles_accepted(Role.ROLE_ADMIN)

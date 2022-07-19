@@ -9,4 +9,9 @@ $(document).ready(function() {
     $('#btn-logout').click(function() {
         window.location.href = logoutUrl;
     });
+
+    // enable tooltips
+    $(function() {
+        $('[data-toggle="tooltip"]').tooltip();
+    });
 });

@@ -18,7 +18,7 @@ API_SECRET = app.config['CROWN_API_SECRET']
 CROWN_ACCOUNT_CODE = app.config['CROWN_ACCOUNT_CODE']
 CROWN_WITHDRAW_FEE_INT = int(app.config['CROWN_WITHDRAW_FEE_INT'])
 CROWN_WITHDRAW_NAME = app.config['CROWN_WITHDRAW_NAME']
-URL_BASE = 'XXX' # TODO
+URL_BASE = 'XXX'  # TODO
 if app.config['TESTNET']:
     URL_BASE = 'https://api.mycrown.services/'
 

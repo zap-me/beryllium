@@ -143,7 +143,7 @@ def _fiat_withdrawal_update(fiat_withdrawal: FiatWithdrawal):
             return updated_records
         elif conf.confirmed is None:
             if conf.expired():
-                ftx = withdrawal_cancel(fiat_withdrawal, 'confirmation expiry') # sets status to STATUS_CANCELLED
+                ftx = withdrawal_cancel(fiat_withdrawal, 'confirmation expiry')  # sets status to STATUS_CANCELLED
                 updated_records.append(fiat_withdrawal)
                 updated_records.append(ftx)
         elif conf.confirmed:
@@ -310,10 +310,10 @@ def _crypto_deposits_updated_wallet_check(db_session: Session, updated_crypto_de
     for deposit in CryptoDeposit.of_wallet(db_session, False, False):
         logger.info('processing crypto deposit %s (confirmed: %s)..', deposit.token, deposit.confirmed)
         if wallet.deposit_expired(deposit.asset, deposit.l2_network, deposit.wallet_reference):
-            deposit.expired = True # has no status field :(((
+            deposit.expired = True  # has no status field :(((
             updated_crypto_deposits.append(deposit)
         elif wallet.deposit_completed(deposit.asset, deposit.l2_network, deposit.wallet_reference):
-            deposit.confirmed = True # has no status field :(((
+            deposit.confirmed = True  # has no status field :(((
             # credit the users account
             ftx = fiatdb_core.tx_create(deposit.user, FiatDbTransaction.ACTION_CREDIT, deposit.asset, deposit.amount, f'crypto deposit: {deposit.token}')
             db_session.add(ftx)
@@ -360,7 +360,7 @@ def _crypto_withdrawal_update(crypto_withdrawal: CryptoWithdrawal):
             logger.error('crypto withdrawal (%s) does not have a confirmation record', crypto_withdrawal.token)
         elif conf.confirmed is None:
             if conf.expired():
-                ftx = withdrawal_cancel(crypto_withdrawal, 'confirmation expiry') # sets status to STATUS_CANCELLED
+                ftx = withdrawal_cancel(crypto_withdrawal, 'confirmation expiry')  # sets status to STATUS_CANCELLED
                 updated_records.append(crypto_withdrawal)
                 updated_records.append(ftx)
         elif conf.confirmed:

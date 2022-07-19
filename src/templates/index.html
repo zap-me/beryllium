@@ -1,9 +1,9 @@
 {% extends "layout.html" %}
 {% block content %}
     {% if current_user.is_authenticated %}
-        <div class="some-page-wrapper">
-            <div class="row">
-                {% if current_user.has_role("admin") or current_user.has_role("finance") %}
+        <div class="row justify-content-center">
+            {% if current_user.has_role("admin") or current_user.has_role("finance") %}
+                <div class="col-sm-3">
                     <a href="{{ url_for('reporting.dashboard_general') }}">
                         <div class="dashboard">
                             <img src="static/assets/img/index_img/dashboard.png"
@@ -15,6 +15,8 @@
                             </p>
                         </div>
                     </a>
+                </div>
+                <div class="col-sm-3">
                     <a href="{{ url_for('push_notifications') }}">
                         <div class="dashboard">
                             <img src="static/assets/img/index_img/notification.png"
@@ -26,6 +28,8 @@
                             </p>
                         </div>
                     </a>
+                </div>
+                <div class="col-sm-3">
                     <a href="{{ url_for('admin.index') }}">
                         <div class="dashboard">
                             <img src="static/assets/img/index_img/admin-with-cogwheels.png"
@@ -37,6 +41,8 @@
                             </p>
                         </div>
                     </a>
+                </div>
+                <div class="col-sm-3">
                     <a href="{{ url_for('payments.payouts') }}">
                         <div class="dashboard">
                             <img src="static/assets/img/index_img/bank.jpg"
@@ -48,6 +54,8 @@
                             </p>
                         </div>
                     </a>
+                </div>
+                <div class="col-sm-3">
                     <a href="{{ url_for('test_email') }}">
                         <div class="dashboard">
                             <img src="static/assets/img/index_img/email.jpg"
@@ -59,6 +67,8 @@
                             </p>
                         </div>
                     </a>
+                </div>
+                <div class="col-sm-3">
                     <a href="{{ url_for('test_ws') }}">
                         <div class="dashboard">
                             <img src="static/assets/img/index_img/socketio.svg"
@@ -70,6 +80,8 @@
                             </p>
                         </div>
                     </a>
+                </div>
+                <div class="col-sm-3">
                     <a href="{{ url_for('user_kyc') }}">
                         <div class="dashboard">
                             <img src="static/assets/img/index_img/kyc.jpg"
@@ -81,8 +93,10 @@
                             </p>
                         </div>
                     </a>
-                {% endif %}
-                {% if current_user.has_role("admin") %}
+                </div>
+            {% endif %}
+            {% if current_user.has_role("admin") %}
+                <div class="col-sm-3">
                     <a href="{{ url_for('user_balance') }}">
                         <div class="dashboard">
                             <img src="static/assets/img/index_img/tokens.png"
@@ -94,6 +108,8 @@
                             </p>
                         </div>
                     </a>
+                </div>
+                <div class="col-sm-3">
                     <a href="{{ url_for('user_withdrawal') }}">
                         <div class="dashboard">
                             <img src="static/assets/img/index_img/withdraw.png"
@@ -105,6 +121,8 @@
                             </p>
                         </div>
                     </a>
+                </div>
+                <div class="col-sm-3">
                     <a href="{{ url_for('user_order') }}">
                         <div class="dashboard">
                             <img src="static/assets/img/index_img/order.png"
@@ -116,6 +134,8 @@
                             </p>
                         </div>
                     </a>
+                </div>
+                <div class="col-sm-3">
                     <a href="{{ url_for('ln_wallet.ln_index') }}">
                         <div class="dashboard">
                             <img src="static/assets/img/index_img/lightning.jpg"
@@ -127,6 +147,8 @@
                             </p>
                         </div>
                     </a>
+                </div>
+                <div class="col-sm-3">
                     <a href="{{ url_for('config') }}">
                         <div class="dashboard">
                             <img src="static/assets/img/index_img/config.png"
@@ -138,6 +160,8 @@
                             </p>
                         </div>
                     </a>
+                </div>
+                <div class="col-sm-3">
                     <a href="{{ url_for('process_depwith_broker') }}">
                         <div class="dashboard">
                             <img src="static/assets/img/index_img/process.png"
@@ -149,6 +173,8 @@
                             </p>
                         </div>
                     </a>
+                </div>
+                <div class="col-sm-3">
                     <a href="{{ url_for('tripwire_ep') }}">
                         <div class="dashboard">
                             <img src="static/assets/img/index_img/tripwire.png"
@@ -160,6 +186,8 @@
                             </p>
                         </div>
                     </a>
+                </div>
+                <div class="col-sm-3">
                     <a href="{{ url_for('db_test') }}">
                         <div class="dashboard">
                             <img src="static/assets/img/index_img/database.png"
@@ -171,23 +199,8 @@
                             </p>
                         </div>
                     </a>
-                {% endif %}
-            </div>
+                </div>
+            {% endif %}
         </div>
     {% endif %}
-{% endblock %}
-{% block footer %}
-    <div class="row justify-content-center">
-        <div class="col-sm-6">
-            <div class="card">
-                <div class="card-body">
-                    <p class="card-text">
-                        <center>
-                            <small class="text-muted">FOOTER</small>
-                        </center>
-                    </p>
-                </div>
-            </div>
-        </div>
-    </div>
 {% endblock %}

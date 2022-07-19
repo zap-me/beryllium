@@ -122,7 +122,7 @@ class EventsNamespace(Namespace):
         logger.error(err)
 
     def on_connect(self):
-        logger.info("connect sid: %s", request.sid) # pyright: ignore [reportGeneralTypeIssues]
+        logger.info("connect sid: %s", request.sid)  # pyright: ignore [reportGeneralTypeIssues]
         emit('version', json.dumps(dict(server_version=SERVER_VERSION, client_version_deployed=CLIENT_VERSION_DEPLOYED)), json=True, namespace=NS)
 
     def on_auth(self, auth: dict | str):
@@ -130,7 +130,7 @@ class EventsNamespace(Namespace):
             try:
                 auth = json.loads(auth)
                 assert isinstance(auth, dict)
-            except:
+            except Exception:
                 emit("info", "invalid json", namespace=NS)
                 return
         if "api_key" not in auth:
@@ -150,7 +150,7 @@ class EventsNamespace(Namespace):
             logger.info("join room for email: %s", api_key.user.email)
             join_room(api_key.user.email)
             # store sid -> email map
-            ws_sids[request.sid] = api_key.user.email # type: ignore
+            ws_sids[request.sid] = api_key.user.email  # type: ignore
         else:
             api_key_token = auth["api_key"]
             emit("info", f"failed authentication ({api_key_token}): {reason}", namespace=NS)
@@ -163,7 +163,7 @@ class EventsNamespace(Namespace):
         emit("info", f"joined room for invoice label ({label})", namespace=NS)
 
     def on_disconnect(self):
-        sid = request.sid # pyright: ignore [reportGeneralTypeIssues]
+        sid = request.sid  # pyright: ignore [reportGeneralTypeIssues]
         logger.info("disconnect sid: %s", sid)
         if sid in ws_sids:
             # remove sid -> email map

@@ -45,7 +45,7 @@ load_dotenv()
 # Create Flask application
 app = Flask(__name__)
 app.json_encoder = MyJSONEncoder
-app.wsgi_app = ProxyFix(app.wsgi_app) # type: ignore
+app.wsgi_app = ProxyFix(app.wsgi_app)  # type: ignore
 all_origins = {"origins": "*"}
 cors = CORS(app, resources={r"/apiv1/*": all_origins})
 csp = {

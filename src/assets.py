@@ -52,16 +52,16 @@ LTC = Asset(symbol='LTC', name='Litecoin', decimals=8, withdraw_fee=Dec('0.01'),
             deposit_instr=None, withdraw_instr=None)
 WAVES = Asset(symbol='WAVES', name='Waves', decimals=8, withdraw_fee=Dec('0.001'), withdraw_fee_fixed=True, min_withdraw=Dec('0.003'), is_crypto=True, l2_network=None,
               deposit_instr=None, withdraw_instr=None)
-ASSETS = dict(NZD=NZD, BTC=BTC, USDT=USDT, USDC=USDC, ETH=ETH, DOGE=DOGE, LTC=LTC, WAVES=WAVES)
-ASSETS = dict(NZD=NZD, BTC=BTC) # switch off other assets
-MARKETS = {'BTC-NZD': Market(base_asset=BTC, quote_asset=NZD),
-           'BTC-USDT': Market(base_asset=BTC, quote_asset=USDT),
-           'BTC-USDC': Market(base_asset=BTC, quote_asset=USDC),
-           'ETH-NZD': Market(base_asset=ETH, quote_asset=NZD),
-           'DOGE-NZD': Market(base_asset=DOGE, quote_asset=NZD),
-           'LTC-NZD': Market(base_asset=LTC, quote_asset=NZD),
-           'WAVES-BTC': Market(base_asset=WAVES, quote_asset=BTC)}
-MARKETS = {'BTC-NZD': Market(base_asset=BTC, quote_asset=NZD)} # switch off other markets
+ASSETS_HISTORICAL = dict(NZD=NZD, BTC=BTC, USDT=USDT, USDC=USDC, ETH=ETH, DOGE=DOGE, LTC=LTC, WAVES=WAVES)
+ASSETS = dict(NZD=NZD, BTC=BTC)
+MARKETS_HISTORICAL = {'BTC-NZD': Market(base_asset=BTC, quote_asset=NZD),
+                      'BTC-USDT': Market(base_asset=BTC, quote_asset=USDT),
+                      'BTC-USDC': Market(base_asset=BTC, quote_asset=USDC),
+                      'ETH-NZD': Market(base_asset=ETH, quote_asset=NZD),
+                      'DOGE-NZD': Market(base_asset=DOGE, quote_asset=NZD),
+                      'LTC-NZD': Market(base_asset=LTC, quote_asset=NZD),
+                      'WAVES-BTC': Market(base_asset=WAVES, quote_asset=BTC)}
+MARKETS = {'BTC-NZD': Market(base_asset=BTC, quote_asset=NZD)}
 
 class MarketSide(Enum):
     BID = 'bid'
@@ -71,7 +71,7 @@ class MarketSide(Enum):
     def parse(cls, val: str):
         try:
             return cls(val)
-        except:
+        except Exception:
             return None
 
 #
@@ -114,7 +114,7 @@ def assets_from_market(market: str) -> list[str]:
     return market.split('-')
 
 def asset_decimals(asset: str) -> int:
-    return ASSETS[asset].decimals
+    return ASSETS_HISTORICAL[asset].decimals
 
 def _withdraw_fee(asset: Asset, amount: Dec | None):
     if asset.withdraw_fee_fixed:
@@ -124,14 +124,14 @@ def _withdraw_fee(asset: Asset, amount: Dec | None):
     return amount * asset.withdraw_fee
 
 def asset_withdraw_fee(asset: str, l2_network: str | None, amount: Dec | None = None) -> Dec:
-    asset_ = ASSETS[asset]
+    asset_ = ASSETS_HISTORICAL[asset]
     if not l2_network:
         return _withdraw_fee(asset_, amount)
     assert asset_.l2_network is not None and asset_.l2_network.symbol == l2_network
     return _withdraw_fee(asset_.l2_network, amount)
 
 def asset_min_withdraw(asset: str, l2_network: str | None) -> Dec:
-    ass = ASSETS[asset]
+    ass = ASSETS_HISTORICAL[asset]
     if l2_network:
         assert ass.l2_network is not None and ass.l2_network.symbol == l2_network
         return ass.l2_network.min_withdraw
@@ -150,7 +150,7 @@ def asset_dec_to_str(asset: str, value: Dec) -> str:
     return format(value, f'.{decimals}f')
 
 def asset_is_crypto(asset: str) -> bool:
-    for item in ASSETS.values():
+    for item in ASSETS_HISTORICAL.values():
         if item.symbol == asset and item.is_crypto:
             return True
     return False
@@ -164,7 +164,7 @@ def asset_has_l2(asset: str, l2_network: str | None) -> bool:
     return False
 
 def asset_is_fiat(asset: str) -> bool:
-    for item in ASSETS.values():
+    for item in ASSETS_HISTORICAL.values():
         if item.symbol == asset and not item.is_crypto:
             return True
     return False
@@ -190,7 +190,7 @@ def asset_recipient_validate(asset: str, l2_network: str | None, recipient: str)
         try:
             bitcoin.wallet.CBitcoinAddress(recipient)
             result = True
-        except:
+        except Exception:
             pass
     elif asset in (USDT.symbol, USDC.symbol, ETH.symbol):
         result = web3.Web3.isAddress(recipient)

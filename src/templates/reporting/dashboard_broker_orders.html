@@ -1,108 +1,79 @@
 {% extends "layout.html" %}
-{% block head_css %}{{ super() }}{% endblock %}
 {% block content %}
-    <div class="some-page-wrapper">
-        <div class="row">
-            <div class="column">
-                <div class="row-divider text_color">Broker Orders</div>
-            </div>
+    <div class="row justify-content-center">
+        <div class="col-sm">
+            <h3>Broker Orders</h3>
         </div>
-        <div class="row">
-            <div class="column">
-                <div class="title-borderless"></div>
-            </div>
-            <div class="column">
-                <div class="title_1line-column text_color">Today</div>
-            </div>
-            <div class="column">
-                <div class="title_1line-column text_color">Yesterday</div>
-            </div>
-            <div class="column">
-                <div class="title_2lines-column text_color">
-                    Week
-                    <br />
-                    (WTD,Mon-Sun)
-                </div>
-            </div>
-            <div class="column">
-                <div class="title_2lines-column text_color">
-                    Month
-                    <br />
-                    (MTD)
-                </div>
-            </div>
-            <div class="column">
-                <div class="title_2lines-column text_color">
-                    Year
-                    <br />
-                    (YTD)
-                </div>
-            </div>
-            <div class="column">
-                <div class="title_1line-column text_color">Lifetime</div>
-            </div>
+    </div>
+    <div class="row">
+        <div class="col-sm">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th scope="col"></th>
+                        <th scope="col">Today</th>
+                        <th scope="col">Yesterday</th>
+                        <th scope="col">Week (WTD, Mon-Sun)</th>
+                        <th scope="col">Month (MTD)</th>
+                        <th scope="col">Year (YTD)</th>
+                        <th scope="col">Lifetime</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for market in orders_data %}
+                        <tr>
+                            <th scope="row"
+                                data-toggle="tooltip"
+                                data-placement="top"
+                                title="No. of orders (amount in {{ orders_data[market].asset_symbol }})">
+                                {{ orders_data[market].asset_symbol }}
+                            </th>
+                            <td>
+                                <a href="/admin/brokerorder/?flt1_0={{ orders_data[market].today }}+to+{{ orders_data[market].tomorrow }}&flt2_1={{ orders_data[market].asset_symbol }}">
+                                    {{ orders_data[market].order_count_today }}
+                                    <br/>
+                                    {{ orders_data[market].order_amount_today }} {{ orders_data[market].asset_symbol }}
+                                </a>
+                            </td>
+                            <td>
+                                <a href="/admin/brokerorder/?flt1_0={{ orders_data[market].yesterday }}+to+{{ orders_data[market].today }}&flt2_1={{ orders_data[market].asset_symbol }}">
+                                    {{ orders_data[market].order_count_yesterday }}
+                                    <br/>
+                                    {{ orders_data[market].order_amount_yesterday }} {{ orders_data[market].asset_symbol }}
+                                </a>
+                            </td>
+                            <td>
+                                <a href="/admin/brokerorder/?flt1_0={{ orders_data[market].monday }}+to+{{ orders_data[market].next_monday }}&flt2_1={{ orders_data[market].asset_symbol }}">
+                                    {{ orders_data[market].order_count_week }}
+                                    <br/>
+                                    {{ orders_data[market].order_amount_week }} {{ orders_data[market].asset_symbol }}
+                                </a>
+                            </td>
+                            <td>
+                                <a href="/admin/brokerorder/?flt1_0={{ orders_data[market].first_day_current_month }}+to+{{ orders_data[market].first_day_next_month }}&flt2_1={{ orders_data[market].asset_symbol }}">
+                                    {{ orders_data[market].order_count_month }}
+                                    <br/>
+                                    {{ orders_data[market].order_amount_month }} {{ orders_data[market].asset_symbol }}
+                                </a>
+                            </td>
+                            <td>
+                                <a href="/admin/brokerorder/?flt1_0={{ orders_data[market].first_day_current_year }}+to+{{ orders_data[market].first_day_next_year }}&flt2_1={{ orders_data[market].asset_symbol }}">
+                                    {{ orders_data[market].order_count_year }}
+                                    <br/>
+                                    {{ orders_data[market].order_amount_year }} {{ orders_data[market].asset_symbol }}
+                                </a>
+                            </td>
+                            <td>
+                                <a href="/admin/brokerorder/?flt1_1={{ orders_data[market].asset_symbol }}">
+                                    {{ orders_data[market].order_count_lifetime }}
+                                    <br/>
+                                    {{ orders_data[market].order_amount_lifetime }} {{ orders_data[market].asset_symbol }}
+                                </a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
-        {% for market in orders_data %}
-            <div class="row">
-                <div class="column">
-                    <div class="row-2line-title white text_color report-row-padding-1line">{{ orders_data[market].asset_symbol }}</div>
-                    <div class="hide">No. of orders ( amount in {{ orders_data[market].asset_symbol }} )</div>
-                </div>
-                <div class="column">
-                    <a href="/admin/brokerorder/?flt1_0={{ orders_data[market].today }}+to+{{ orders_data[market].tomorrow }}&flt2_1={{ orders_data[market].asset_symbol }}">
-                        <div class="report-row report-row-hover white text_color report-row-padding-2line">
-                            {{ orders_data[market].order_count_today }}
-                            <br/>
-                            {{ orders_data[market].order_amount_today }} {{ orders_data[market].asset_symbol }}
-                        </div>
-                    </a>
-                </div>
-                <div class="column">
-                    <a href="/admin/brokerorder/?flt1_0={{ orders_data[market].yesterday }}+to+{{ orders_data[market].today }}&flt2_1={{ orders_data[market].asset_symbol }}">
-                        <div class="report-row report-row-hover white text_color report-row-padding-2line">
-                            {{ orders_data[market].order_count_yesterday }}
-                            <br/>
-                            {{ orders_data[market].order_amount_yesterday }} {{ orders_data[market].asset_symbol }}
-                        </div>
-                    </a>
-                </div>
-                <div class="column">
-                    <a href="/admin/brokerorder/?flt1_0={{ orders_data[market].monday }}+to+{{ orders_data[market].next_monday }}&flt2_1={{ orders_data[market].asset_symbol }}">
-                        <div class="report-row report-row-hover white text_color report-row-padding-2line">
-                            {{ orders_data[market].order_count_week }}
-                            <br/>
-                            {{ orders_data[market].order_amount_week }} {{ orders_data[market].asset_symbol }}
-                        </div>
-                    </a>
-                </div>
-                <div class="column">
-                    <a href="/admin/brokerorder/?flt1_0={{ orders_data[market].first_day_current_month }}+to+{{ orders_data[market].first_day_next_month }}&flt2_1={{ orders_data[market].asset_symbol }}">
-                        <div class="report-row report-row-hover white text_color report-row-padding-2line">
-                            {{ orders_data[market].order_count_month }}
-                            <br/>
-                            {{ orders_data[market].order_amount_month }} {{ orders_data[market].asset_symbol }}
-                        </div>
-                    </a>
-                </div>
-                <div class="column">
-                    <a href="/admin/brokerorder/?flt1_0={{ orders_data[market].first_day_current_year }}+to+{{ orders_data[market].first_day_next_year }}&flt2_1={{ orders_data[market].asset_symbol }}">
-                        <div class="report-row report-row-hover white text_color report-row-padding-2line">
-                            {{ orders_data[market].order_count_year }}
-                            <br/>
-                            {{ orders_data[market].order_amount_year }} {{ orders_data[market].asset_symbol }}
-                        </div>
-                    </a>
-                </div>
-                <div class="column">
-                    <a href="/admin/brokerorder/?flt1_1={{ orders_data[market].asset_symbol }}">
-                        <div class="report-row report-row-hover white text_color report-row-padding-2line">
-                            {{ orders_data[market].order_count_lifetime }}
-                            <br/>
-                            {{ orders_data[market].order_amount_lifetime }} {{ orders_data[market].asset_symbol }}
-                        </div>
-                    </a>
-                </div>
-            </div>
-        {% endfor %}
     </div>
 {% endblock %}

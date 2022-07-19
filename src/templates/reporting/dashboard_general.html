@@ -1,22 +1,23 @@
 {% extends "layout.html" %}
-{% block head_css %}{{ super() }}{% endblock %}
 {% block content %}
-    <div class="some-page-wrapper">
-        <h3>Dasset Balances:</h3>
-        <div class="row">
-            {% for balance in dasset_balances %}
-                <div class="column">
-                    <div class="operations_account_column text_color">
-                        <b>{{ balance.name }}</b>
-                        <div class="report-row report-row-sm blue text_color">Available: {{ balance.available }} {{ balance.symbol }}</div>
-                        <div class="report-row report-row-sm blue text_color">Total: {{ balance.total }} {{ balance.symbol }}</div>
-                    </div>
-                {% endfor %}
-            </div>
+    <div class="row justify-content-center">
+        <div class="col-sm">
+            <h3>Dasset Balances</h3>
         </div>
-        <hr />
-        {% if config["USE_REFERRALS"] %}
-            {% include "referral_settings.html" %}
-        {% endif %}
     </div>
+    <div class="row">
+        {% for balance in dasset_balances %}
+            <div class="col-sm">
+                <div class="operations_account_column text_color">
+                    <b>{{ balance.name }}</b>
+                    <div class="report-row report-row-sm blue text_color">Available: {{ balance.available }} {{ balance.symbol }}</div>
+                    <div class="report-row report-row-sm blue text_color">Total: {{ balance.total }} {{ balance.symbol }}</div>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+    <hr />
+    {% if config["USE_REFERRALS"] %}
+        {% include "referral_settings.html" %}
+    {% endif %}
 {% endblock %}

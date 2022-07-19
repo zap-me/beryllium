@@ -1,10 +1,9 @@
 {% extends "lightning/layout.html" %}
 {% block title %}Lightning Home{% endblock %}
 {% block content %}
-    <br/>
     <h2>BALANCES</h2>
-    <div class="some-page-wrapper">
-        <div class="row text-muted">
+    <div class="row justify-content-center">
+        <div class="col-sm-3">
             <div class="card m-1">
                 <div class="card-body mx-auto">
                     <h5 class="card-title">ONCHAIN</h5>
@@ -23,6 +22,8 @@
                     {% endif %}
                 </div>
             </div>
+        </div>
+        <div class="col-sm-3">
             <div class="card m-1">
                 <div class="card-body mx-auto">
                     <h5 class="card-title">LN CHANNELS</h5>
@@ -34,8 +35,8 @@
         </div>
     </div>
     <h2>DIAGNOSTIC</h2>
-    <div class="some-page-wrapper">
-        <div class="row">
+    <div class="row justify-content-center">
+        <div class="col-sm-3">
             <a href="getinfo">
                 <div class="dashboard_links">
                     <p>Lightningd Getinfo</p>
@@ -49,75 +50,102 @@
                 -->
             </a>
         </div>
-        <h2>BTC</h2>
-        <div class="some-page-wrapper">
-            <div class="row">
-                <a href="utxos">
-                    <div class="dashboard_links">
-                        <p>UTXOs</p>
-                    </div>
-                </a>
-                <a href="new_address">
-                    <div class="dashboard_links">
-                        <p>New Address</p>
-                    </div>
-                </a>
-                <a href="list_txs">
-                    <div class="dashboard_links">
-                        <p>Transaction History</p>
-                    </div>
-                </a>
-                <a href="address">
-                    <div class="dashboard_links">
-                        <p>Address History</p>
-                    </div>
-                </a>
-                <a href="create_psbt">
-                    <div class="dashboard_links">
-                        <p>Create PSBT/Withdrawal</p>
-                    </div>
-                </a>
-                <a href="sign_psbt">
-                    <div class="dashboard_links">
-                        <p>Sign PSBT</p>
-                    </div>
-                </a>
-                <a href="broadcast_psbt">
-                    <div class="dashboard_links">
-                        <p>Broadcast PSBT</p>
-                    </div>
-                </a>
-            </div>
+    </div>
+    <h2>BTC</h2>
+    <div class="row justify-content-center">
+        <div class="col-sm-3">
+            <a href="utxos">
+                <div class="dashboard_links">
+                    <p>UTXOs</p>
+                </div>
+            </a>
         </div>
-        <h2>LIGHTNING</h2>
-        <div class="some-page-wrapper">
-            <div class="row">
-                <a href="invoice">
-                    <div class="dashboard_links">
-                        <p>Create Invoice</p>
-                    </div>
-                </a>
-                <a href="pay_invoice">
-                    <div class="dashboard_links">
-                        <p>Pay Invoice</p>
-                    </div>
-                </a>
-                <a href="lightning_transactions">
-                    <div class="dashboard_links">
-                        <p>Lightning Transactions</p>
-                    </div>
-                </a>
-                <a href="channel_opener">
-                    <div class="dashboard_links">
-                        <p>Open Channel</p>
-                    </div>
-                </a>
-                <a href="channel_management">
-                    <div class="dashboard_links">
-                        <p>Channel Management</p>
-                    </div>
-                </a>
-            </div>
+        <div class="col-sm-3">
+            <a href="new_address">
+                <div class="dashboard_links">
+                    <p>New Address</p>
+                </div>
+            </a>
+        </div>
+        <div class="col-sm-3">
+            <a href="list_txs">
+                <div class="dashboard_links">
+                    <p>Transaction History</p>
+                </div>
+            </a>
+        </div>
+        <div class="col-sm-3">
+            <a href="address">
+                <div class="dashboard_links">
+                    <p>Address History</p>
+                </div>
+            </a>
+        </div>
+        <div class="col-sm-3">
+            <a href="create_psbt">
+                <div class="dashboard_links">
+                    <p>Create PSBT/Withdrawal</p>
+                </div>
+            </a>
+        </div>
+        <div class="col-sm-3">
+            <a href="sign_psbt">
+                <div class="dashboard_links">
+                    <p>Sign PSBT</p>
+                </div>
+            </a>
+        </div>
+        <div class="col-sm-3">
+            <a href="broadcast_psbt">
+                <div class="dashboard_links">
+                    <p>Broadcast PSBT</p>
+                </div>
+            </a>
+        </div>
+    </div>
+    <h2>LIGHTNING</h2>
+    <div class="row justify-content-center">
+        <div class="col-sm-3">
+            <a href="invoice">
+                <div class="dashboard_links">
+                    <p>Create Invoice</p>
+                </div>
+            </a>
+        </div>
+        <div class="col-sm-3">
+            <a href="pay_invoice">
+                <div class="dashboard_links">
+                    <p>Pay Invoice</p>
+                </div>
+            </a>
+        </div>
+        <div class="col-sm-3">
+            <a href="lightning_transactions">
+                <div class="dashboard_links">
+                    <p>Lightning Transactions</p>
+                </div>
+            </a>
+        </div>
+        <div class="col-sm-3">
+            <a href="channel_opener">
+                <div class="dashboard_links">
+                    <p>Open Channel</p>
+                </div>
+            </a>
+        </div>
+        <div class="col-sm-3">
+            <a href="channel_management">
+                <div class="dashboard_links">
+                    <p>Channel Management</p>
+                </div>
+            </a>
+        </div>
+        <div class="col-sm-3">
+            <a href="peer_management">
+                <div class="dashboard_links">
+                    <p>Peer Management</p>
+                </div>
+            </a>
         </div>
     </div>
 {% endblock %}
