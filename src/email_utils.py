@@ -24,7 +24,7 @@ def _attachment(b64data, mime_type, filename, content_id, disposition='attachmen
 def _attachment_inline(b64data, mime_type, filename, content_id):
     return _attachment(b64data, mime_type, filename, content_id, 'inline')
 
-def send_email(subject: str, msg: str, recipient: str | None = None, attachment: str | None = None) -> bool:
+def send_email(subject: str, msg: str, recipient: str | None = None, attachment: str | None = None):
     return task_manager.one_off('send_email_task', send_email_task, [subject, msg, recipient, attachment])
 
 def send_email_sendgrid(logger: Logger, subject: str, msg: str, recipient: str, attachment: str | None = None) -> bool:

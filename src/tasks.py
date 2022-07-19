@@ -106,9 +106,9 @@ def _process_ln_invoices_loop():
 
 def rebalance_channels(oscid: str, iscid: str, amount: int):
     LnRpc().rebalance_channel(oscid, iscid, amount)
-    send_email('Channel Rebalance Successful', 'Rebalanced {0} -> {1} with {2} sats'.format(oscid, iscid, amount))
+    email_utils.send_email('Channel Rebalance Successful', 'Rebalanced {0} -> {1} with {2} sats'.format(oscid, iscid, amount))
 
-def send_email_task(subject: str, msg: str, recipient: str | None = None, attachment: str | None = None) -> bool:
+def send_email_task(subject: str, msg: str, recipient: str | None = None, attachment: str | None = None):
     if not recipient:
         recipient = app.config["ADMIN_EMAIL"]
     assert recipient
