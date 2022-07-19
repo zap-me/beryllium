@@ -87,7 +87,7 @@ def _broker_order_action(db_session: Session, broker_order: BrokerOrder):
         if not exchange_order_id:
             msg = f'{broker_order.token}, {broker_order.market}, {broker_order.side}, {base_amount_dec}, {quote_amount_dec}, {price}'
             logger.error('failed to create exchange order - %s', msg)
-            email_utils.send_email(logger, 'failed to create exchange order', msg)
+            email_utils.send_email('failed to create exchange order', msg)
             return updated_records
         exchange_order = ExchangeOrder(exchange_order_id)
         broker_order.exchange_order = exchange_order
@@ -113,7 +113,7 @@ def _broker_order_action(db_session: Session, broker_order: BrokerOrder):
             else:
                 msg = f'{broker_order.token}, {broker_order.exchange_order.exchange_reference}'
                 logger.error('failed to complete exchange order - %s', msg)
-                email_utils.send_email(logger, 'failed to complete exchange order', msg)
+                email_utils.send_email('failed to complete exchange order', msg)
         return updated_records
     # check expiry
     if broker_order.status == broker_order.STATUS_CREATED:
@@ -131,13 +131,13 @@ def _email_msg(broker_order: BrokerOrder, msg: str):
 
 def _broker_order_email(broker_order: BrokerOrder):
     if broker_order.status == broker_order.STATUS_FAILED:
-        email_utils.send_email(logger, 'Order Failed', _email_msg(broker_order, ''), broker_order.user.email)
+        email_utils.send_email('Order Failed', _email_msg(broker_order, ''), broker_order.user.email)
     if broker_order.status == broker_order.STATUS_CANCELLED:
-        email_utils.send_email(logger, 'Order Cancelled', _email_msg(broker_order, ''), broker_order.user.email)
+        email_utils.send_email('Order Cancelled', _email_msg(broker_order, ''), broker_order.user.email)
     if broker_order.status == broker_order.STATUS_COMPLETED:
-        email_utils.send_email(logger, 'Order Completed', _email_msg(broker_order, ''), broker_order.user.email)
+        email_utils.send_email('Order Completed', _email_msg(broker_order, ''), broker_order.user.email)
     if broker_order.status == broker_order.STATUS_EXPIRED:
-        email_utils.send_email(logger, 'Order Expired', _email_msg(broker_order, ''), broker_order.user.email)
+        email_utils.send_email('Order Expired', _email_msg(broker_order, ''), broker_order.user.email)
 
 #
 # Public functions

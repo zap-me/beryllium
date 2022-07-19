@@ -79,9 +79,9 @@ def _fiat_deposit_email_msg(fiat_deposit: FiatDeposit, msg: str):
 
 def _fiat_deposit_email(fiat_deposit: FiatDeposit):
     if fiat_deposit.status == fiat_deposit.STATUS_COMPLETED:
-        email_utils.send_email(logger, 'Deposit Completed', _fiat_deposit_email_msg(fiat_deposit, ''), fiat_deposit.user.email)
+        email_utils.send_email('Deposit Completed', _fiat_deposit_email_msg(fiat_deposit, ''), fiat_deposit.user.email)
     if fiat_deposit.status == fiat_deposit.STATUS_EXPIRED:
-        email_utils.send_email(logger, 'Deposit Expired', _fiat_deposit_email_msg(fiat_deposit, ''), fiat_deposit.user.email)
+        email_utils.send_email('Deposit Expired', _fiat_deposit_email_msg(fiat_deposit, ''), fiat_deposit.user.email)
 
 def _crown_check_new_desposits(db_session: Session):
     if not utils.is_email(crown_financial.EMAIL):
@@ -183,7 +183,7 @@ def _fiat_withdrawal_email_msg(fiat_withdrawal: FiatWithdrawal, msg: str):
 
 def _fiat_withdrawal_email(fiat_withdrawal: FiatWithdrawal):
     if fiat_withdrawal.status == fiat_withdrawal.STATUS_COMPLETED:
-        email_utils.send_email(logger, 'Withdrawal Completed', _fiat_withdrawal_email_msg(fiat_withdrawal, ''), fiat_withdrawal.user.email)
+        email_utils.send_email('Withdrawal Completed', _fiat_withdrawal_email_msg(fiat_withdrawal, ''), fiat_withdrawal.user.email)
 
 def _fiat_withdrawal_update_and_commit(db_session: Session, withdrawal: FiatWithdrawal):
     if withdrawal.asset not in assets.ASSETS:
@@ -223,9 +223,9 @@ def _crypto_deposit_email_msg(deposit: CryptoDeposit, verb: str, msg: str):
 
 def _crypto_deposit_email(deposit: CryptoDeposit):
     if deposit.confirmed:
-        email_utils.send_email(logger, 'Deposit Confirmed', _crypto_deposit_email_msg(deposit, 'confirmed', ''), deposit.user.email)
+        email_utils.send_email('Deposit Confirmed', _crypto_deposit_email_msg(deposit, 'confirmed', ''), deposit.user.email)
     else:
-        email_utils.send_email(logger, 'Deposit Incoming', _crypto_deposit_email_msg(deposit, 'incoming', ''), deposit.user.email)
+        email_utils.send_email('Deposit Incoming', _crypto_deposit_email_msg(deposit, 'incoming', ''), deposit.user.email)
 
 def _crypto_deposits_wallet_check(db_session: Session, new_crypto_deposits: list[CryptoDeposit], updated_crypto_deposits: list[CryptoDeposit], user: User, asset: str, addr_list: list[str]):
     for addr in addr_list:
@@ -437,7 +437,7 @@ def _crypto_withdrawal_email_msg(crypto_withdrawal: CryptoWithdrawal, msg: str):
 
 def _crypto_withdrawal_email(crypto_withdrawal: CryptoWithdrawal):
     if crypto_withdrawal.status == crypto_withdrawal.STATUS_COMPLETED:
-        email_utils.send_email(logger, 'Withdrawal Completed', _crypto_withdrawal_email_msg(crypto_withdrawal, ''), crypto_withdrawal.user.email)
+        email_utils.send_email('Withdrawal Completed', _crypto_withdrawal_email_msg(crypto_withdrawal, ''), crypto_withdrawal.user.email)
 
 def _crypto_withdrawal_update_and_commit(db_session: Session, withdrawal: CryptoWithdrawal):
     if withdrawal.asset not in assets.ASSETS:
