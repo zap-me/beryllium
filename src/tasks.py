@@ -1,7 +1,8 @@
-import gevent
+import gevent 
 import logging
 
 from app_core import app, db
+from flask import g
 import dasset
 import assets
 import email_utils
@@ -14,6 +15,20 @@ from models import CryptoDeposit
 import websocket
 
 logger = logging.getLogger(__name__)
+
+
+def _store_task_info(task: str, info: str):
+   if not hasattr(g, 'ongoing_tasks'):
+       g.ongoing_tasks = {}
+   if not '{0}_task_list'.format(task) in g.ongoing_tasks:
+      g.ongoing_tasks['{0}_task_list'.format(task)] = [info]
+   else:
+      g.ongoing_tasks['{0}_task_list'.format(task)].append(info)
+
+def _clear_task_info(task: str):
+   if '{0}_task_list'.format(task) in g.ongoing_tasks:
+       task_infos = g.ongoing_tasks['{0}_task_list'.format(task)]
+       g.ongoing_tasks['{0}_task_list'.format(task)] = [] # clear list once read
 
 #
 # Periodic task functions, !assume we have a flask app context!
@@ -105,8 +120,13 @@ def _process_ln_invoices_loop():
             gevent.sleep(5, False)
 
 def rebalance_channels(oscid: str, iscid: str, amount: int):
-    LnRpc().rebalance_channel(oscid, iscid, amount)
-    email_utils.send_email('Channel Rebalance Successful', 'Rebalanced {0} -> {1} with {2} sats'.format(oscid, iscid, amount))
+    _store_task_info('rebalance_channels', 'Processing rebalance: {0} -> {1} with {2} sats'.format(oscid, iscid, amount))
+    try:
+        LnRpc().rebalance_channel(oscid, iscid, amount)
+        email_utils.send_email('Channel Rebalance Successful', 'Rebalanced {0} -> {1} with {2} sats'.format(oscid, iscid, amount))
+    except Exception as e:
+        logger.error('rebalance_channels error: %s', e)
+    _clear_task_info('rebalance_channels')
 
 def send_email_task(subject: str, msg: str, recipient: str | None = None, attachment: str | None = None):
     if not recipient:
@@ -117,7 +137,15 @@ def send_email_task(subject: str, msg: str, recipient: str | None = None, attach
     return email_utils.send_email_postfix(logger, subject, msg, recipient, attachment)
 
 def pay_to_invoice(invoice_str: str):
-    LnRpc().pay(invoice_str)
+    paid_invoice_str = 'Paid Invoice: {0}'.format(invoice_str)
+    _store_task_info('pay_to_invoice', paid_invoice_str)
+    try:
+        LnRpc().pay(invoice_str)
+        email_utils.send_email('Paid Invoice', paid_invoice_str)
+    except Exception as e:
+        logger.error('pay_to_invoice error: %s', e)
+    _clear_task_info('rebalance_channels')
+    return paid_invoice_str
 #
 # Init tasks
 #

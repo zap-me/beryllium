@@ -1,7 +1,7 @@
 import logging
 import secrets
 
-from flask import Blueprint, render_template, request, flash, jsonify
+from flask import Blueprint, render_template, request, flash, jsonify, g
 from markupsafe import Markup
 from flask_security.decorators import roles_accepted
 
@@ -11,12 +11,19 @@ from app_core import app, limiter, db
 from models import BtcTxIndex, Role
 from ln import LnRpc, _msat_to_sat
 from wallet import bitcoind_rpc, btc_txs_load
-from tasks import rebalance_channels, task_manager
+from tasks import rebalance_channels, task_manager, pay_to_invoice
 
 logger = logging.getLogger(__name__)
 ln_wallet = Blueprint('ln_wallet', __name__, template_folder='templates')
 limiter.limit("100/minute")(ln_wallet)
 BITCOIN_EXPLORER = app.config["BITCOIN_EXPLORER"]
+
+def _get_task_info(task: str):
+   task_infos = []
+   if hasattr(g, 'ongoing_tasks'):
+       if '{0}_task_list'.format(task) in g.ongoing_tasks:
+           task_infos = g.ongoing_tasks['{0}_task_list'.format(task)]
+   return task_infos
 
 @ln_wallet.before_request
 def before_request():
@@ -83,6 +90,9 @@ def ln_invoice():
 @roles_accepted(Role.ROLE_ADMIN)
 def channel_management():
     """ Returns a template listing all connected LN peers """
+    rebalance_tasks = _get_task_info('rebalance_channels')
+    if len(rebalance_tasks) > 0:
+        flash('Rebalance tasks in progress: {0}'.format(rebalance_tasks), 'success')
     rpc = LnRpc()
     if request.method == 'POST':
         if request.form['form-name'] == 'rebalance_channel_form':
@@ -144,11 +154,14 @@ def list_forwards():
 @roles_accepted(Role.ROLE_ADMIN)
 def pay_invoice():
     """Returns template for paying LN invoices"""
+    pay_tasks = _get_task_info('pay_to_invoice')
+    if len(pay_tasks) > 0:
+        flash('Pay to invoice tasks in progress: {0}'.format(pay_tasks), 'success')
     invoice = ''
     if request.method == 'POST':
         invoice = request.form['invoice']
         try:
-            result = LnRpc().pay(invoice)
+            result = task_manager.one_off('pay_to_invoice', pay_to_invoice, [invoice])
             flash(f'Invoice paid: {result}', 'success')
         except Exception as e:
             flash(f'Error paying invoice: {e}', 'danger')
