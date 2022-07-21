@@ -28,7 +28,7 @@ def _store_task_info(task: str, info: str):
 def _clear_task_info(task: str):
     if '{0}_task_list'.format(task) in g.ongoing_tasks:
         task_infos = g.ongoing_tasks['{0}_task_list'.format(task)]
-        g.ongoing_tasks['{0}_task_list'.format(task)] = [] # clear list once read
+        g.ongoing_tasks['{0}_task_list'.format(task)] = []  # clear list once read
 
 #
 # Periodic task functions, !assume we have a flask app context!
