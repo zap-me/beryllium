@@ -155,7 +155,7 @@ def test_email():
         recipient = request.form['recipient']
         subject = request.form['subject']
         message = request.form['message']
-        if email_utils.send_email(logger, subject, message, recipient):
+        if email_utils.send_email(subject, message, recipient):
             flash('Email sent', 'success')
         else:
             flash('Email failed', 'danger')
