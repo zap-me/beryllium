@@ -1,4 +1,4 @@
-import gevent 
+import gevent
 import logging
 
 from app_core import app, db
@@ -18,17 +18,17 @@ logger = logging.getLogger(__name__)
 
 
 def _store_task_info(task: str, info: str):
-   if not hasattr(g, 'ongoing_tasks'):
-       g.ongoing_tasks = {}
-   if not '{0}_task_list'.format(task) in g.ongoing_tasks:
-      g.ongoing_tasks['{0}_task_list'.format(task)] = [info]
-   else:
-      g.ongoing_tasks['{0}_task_list'.format(task)].append(info)
+    if not hasattr(g, 'ongoing_tasks'):
+        g.ongoing_tasks = {}
+    if not '{0}_task_list'.format(task) in g.ongoing_tasks:
+        g.ongoing_tasks['{0}_task_list'.format(task)] = [info]
+    else:
+        g.ongoing_tasks['{0}_task_list'.format(task)].append(info)
 
 def _clear_task_info(task: str):
-   if '{0}_task_list'.format(task) in g.ongoing_tasks:
-       task_infos = g.ongoing_tasks['{0}_task_list'.format(task)]
-       g.ongoing_tasks['{0}_task_list'.format(task)] = [] # clear list once read
+    if '{0}_task_list'.format(task) in g.ongoing_tasks:
+        task_infos = g.ongoing_tasks['{0}_task_list'.format(task)]
+        g.ongoing_tasks['{0}_task_list'.format(task)] = [] # clear list once read
 
 #
 # Periodic task functions, !assume we have a flask app context!

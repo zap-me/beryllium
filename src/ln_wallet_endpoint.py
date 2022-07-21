@@ -19,11 +19,11 @@ limiter.limit("100/minute")(ln_wallet)
 BITCOIN_EXPLORER = app.config["BITCOIN_EXPLORER"]
 
 def _get_task_info(task: str):
-   task_infos = []
-   if hasattr(g, 'ongoing_tasks'):
-       if '{0}_task_list'.format(task) in g.ongoing_tasks:
-           task_infos = g.ongoing_tasks['{0}_task_list'.format(task)]
-   return task_infos
+    task_infos = []
+    if hasattr(g, 'ongoing_tasks'):
+        if '{0}_task_list'.format(task) in g.ongoing_tasks:
+            task_infos = g.ongoing_tasks['{0}_task_list'.format(task)]
+    return task_infos
 
 @ln_wallet.before_request
 def before_request():
