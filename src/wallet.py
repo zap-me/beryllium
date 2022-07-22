@@ -245,37 +245,39 @@ def address_deposits(asset: str, l2_network: str | None, address: str) -> list[B
                 deposit_txs.append(tx)
     return deposit_txs
 
-def deposit_expired(asset: str, l2_network: str | None, wallet_reference: str) -> bool:
+def deposit_expired(asset: str, l2_network: str | None, wallet_reference: str | None) -> bool:
     rpc = LnRpc()
-    if _is_ln(asset, l2_network):
-        result = rpc.invoice_status(wallet_reference)
-        if not result and len(result['invoices']) != 1:
-            logger.error('ln invoice not found: %s', wallet_reference)
+    if wallet_reference:
+        if _is_ln(asset, l2_network):
+            result = rpc.invoice_status(wallet_reference)
+            if not result and len(result['invoices']) != 1:
+                logger.error('ln invoice not found: %s', wallet_reference)
+                return False
+            invoice = result['invoices'][0]
+            expired = invoice['status'] == 'expired'
+            return expired
+        if _is_btc_chain(asset, l2_network):
             return False
-        invoice = result['invoices'][0]
-        expired = invoice['status'] == 'expired'
-        return expired
-    if _is_btc_chain(asset, l2_network):
-        return False
     return False
 
-def deposit_completed(asset: str, l2_network: str | None, wallet_reference: str) -> bool:
+def deposit_completed(asset: str, l2_network: str | None, wallet_reference: str | None) -> bool:
     rpc = LnRpc()
-    if _is_ln(asset, l2_network):
-        result = rpc.invoice_status(wallet_reference)
-        if not result and len(result['invoices']) != 1:
-            logger.error('ln invoice not found: %s', wallet_reference)
+    if wallet_reference:
+        if _is_ln(asset, l2_network):
+            result = rpc.invoice_status(wallet_reference)
+            if not result or len(result['invoices']) != 1:
+                logger.error('ln invoice not found: %s', wallet_reference)
+                return False
+            invoice = result['invoices'][0]
+            complete = invoice['status'] == 'paid'
+            return complete
+        if _is_btc_chain(asset, l2_network):
+            result = rpc.list_txs()
+            txs = result['transactions']
+            for tx in txs:
+                if tx['hash'] == wallet_reference:
+                    return tx['blockheight'] >= 0  # tx is in a block
             return False
-        invoice = result['invoices'][0]
-        complete = invoice['status'] == 'paid'
-        return complete
-    if _is_btc_chain(asset, l2_network):
-        result = rpc.list_txs()
-        txs = result['transactions']
-        for tx in txs:
-            if tx['hash'] == wallet_reference:
-                return tx['blockheight'] >= 0  # tx is in a block
-        return False
     return False
 
 def ln_any_deposit_completed(lastpay_index):

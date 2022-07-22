@@ -3,7 +3,7 @@ import logging
 from flask import redirect, url_for, request, flash
 from flask_security.core import Security
 from flask_security.datastore import SQLAlchemyUserDatastore
-from flask_login import current_user
+from flask_login.utils import current_user
 import flask_security.forms
 import flask_security.utils
 from flask_security.utils import config_value as cv

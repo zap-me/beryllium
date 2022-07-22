@@ -2,7 +2,6 @@ from __future__ import annotations
 from typing import List, TYPE_CHECKING
 from datetime import datetime, timedelta
 import logging
-from typing_extensions import reveal_type
 
 from flask import url_for
 from flask_security.core import UserMixin, RoleMixin
@@ -28,14 +27,6 @@ else:
 # Define beryllium models
 #
 
-class WithdrawStatusMixin():
-    STATUS_CREATED = 'created'
-    STATUS_AUTHORIZED = 'authorized'
-    STATUS_WITHDRAW = 'withdraw'
-    STATUS_COMPLETED = 'completed'
-    STATUS_CANCELLED = 'cancelled'
-
-
 class FromTokenMixin():
     token: str | Column[str]
 
@@ -54,20 +45,6 @@ class FromUserMixin():
     @classmethod
     def total_for_user(cls, session: Session, user: User):
         return session.query(cls).filter(cls.user_id == user.id).count()
-
-class OfAssetMixin():
-    id: Column[int]
-    asset: Column[str]
-    l2_network: Column[str]
-    user_id: Column[int]
-
-    @classmethod
-    def of_asset(cls, session: Session, user: User, asset: str, l2_network: str | None, offset: int, limit: int):
-        return session.query(cls).filter(and_(cls.user_id == user.id, and_(cls.asset == asset, cls.l2_network == l2_network))).order_by(cls.id.desc()).offset(offset).limit(limit)
-
-    @classmethod
-    def total_of_asset(cls, session: Session, user: User, asset: str, l2_network: str | None):
-        return session.query(cls).filter(and_(cls.user_id == user.id, and_(cls.asset == asset, cls.l2_network == l2_network))).count()
 
 roles_users = Table(
     'roles_users',
@@ -490,9 +467,11 @@ class ExchangeOrder(BaseModel):
         self.date = datetime.now()
         self.exchange_reference = exchange_reference
 
-class CryptoWithdrawalSchema(Schema):
+class BalanceUpdateSchema(Schema):
     token = fields.String()
+    type = fields.String()
     date = fields.DateTime()
+    expiry = fields.String()
     asset = fields.String()
     l2_network = fields.String()
     amount = fields.Integer()
@@ -500,115 +479,134 @@ class CryptoWithdrawalSchema(Schema):
     recipient = fields.String()
     txid = fields.String()
     status = fields.String()
+    payment_url = fields.Method('get_payment_url')
 
     def get_amount_dec(self, obj):
         return str(assets.asset_int_to_dec(obj.asset, obj.amount))
 
-class CryptoWithdrawal(BaseModel, FromUserMixin, FromTokenMixin, OfAssetMixin, WithdrawStatusMixin):
+    def get_payment_url(self, obj):
+        payment_url = None
+        if obj.windcave_payment_request:
+            payment_url = url_for('payments.payment_interstitial', token=obj.windcave_payment_request.token, _external=True)
+        return payment_url
+
+class BalanceUpdate(BaseModel, FromUserMixin, FromTokenMixin):
+    TYPE_DEPOSIT = 'deposit'
+    TYPE_WITHDRAWAL = 'withdrawal'
+
+    STATUS_CREATED = 'created'
+    STATUS_AUTHORIZED = 'authorized'
+    STATUS_WITHDRAW = 'withdraw'
+    STATUS_COMPLETED = 'completed'
+    STATUS_CANCELLED = 'cancelled'
+
+    MINUTES_EXPIRY = 15
+
     id = Column(Integer, primary_key=True)
     token = Column(String(255), unique=True, nullable=False)
     user_id = Column(Integer, ForeignKey('user.id'), nullable=False)
     user: RelationshipProperty[User] = relationship('User', backref=backref('crypto_withdrawals', lazy='dynamic'))
+    type = Column(String, nullable=False)
+    crypto = Column(Boolean, nullable=False)
     date = Column(DateTime(), nullable=False)
+    expiry = Column(DateTime(), nullable=False)
     asset = Column(String, nullable=False)
     l2_network = Column(String)
     amount = Column(BigInteger, nullable=False)
     recipient = Column(String, nullable=False)
-    exchange_reference: str | None | Column[str] = Column(String)
+
+    status = Column(String, nullable=False)
+    balance_tx_id = Column(Integer, ForeignKey('fiat_db_transaction.id'))
+    balance_tx: RelationshipProperty['FiatDbTransaction' | None] = relationship("FiatDbTransaction", foreign_keys=[balance_tx_id])
+    balance_tx_cancel_id = Column(Integer, ForeignKey('fiat_db_transaction.id'))
+    balance_tx_cancel: RelationshipProperty['FiatDbTransaction' | None] = relationship("FiatDbTransaction", foreign_keys=[balance_tx_cancel_id])
+
+    # crypto fields
+    exchange_reference = Column(String)
     wallet_reference = Column(String)
     txid = Column(String)
-    status = Column(String, nullable=False)
 
-    def __init__(self, user, asset, l2_network, amount, recipient):
+    # crypto deposit fields
+    crypto_address_id = Column(Integer, ForeignKey('crypto_address.id'))
+    crypto_address: RelationshipProperty['CryptoAddress' | None] = relationship('CryptoAddress', backref=backref('crypto_deposits', lazy='dynamic'))
+
+    # withdrawal fields
+    address_book_id = Column(Integer, ForeignKey('address_book.id'))
+    address_book: RelationshipProperty['AddressBook' | None] = relationship("AddressBook")
+
+    # fiat deposit fields
+    windcave_payment_request_id = Column(Integer, ForeignKey('windcave_payment_request.id'))
+    windcave_payment_request: RelationshipProperty['WindcavePaymentRequest' | None] = relationship('WindcavePaymentRequest', backref=backref('fiat_deposit', uselist=False))
+    crown_payment_id = Column(Integer, ForeignKey('crown_payment.id'))
+    crown_payment: RelationshipProperty['CrownPayment' | None] = relationship('CrownPayment', backref=backref('fiat_deposit', uselist=False))
+
+    # fiat withdrawal fields
+    payout_request_id = Column(Integer, ForeignKey('payout_request.id'))
+    payout_request: RelationshipProperty['PayoutRequest' | None] = relationship('PayoutRequest', backref=backref('fiat_withdrawal', uselist=False))
+
+    def __init__(self, user, type, crypto, asset, l2_network, amount, recipient):
         self.token = generate_key()
         self.user = user
+        self.type = type
+        self.crypto = crypto
         self.date = datetime.now()
+        self.expiry = datetime.now() + timedelta(minutes=self.MINUTES_EXPIRY)
         self.asset = asset
         self.l2_network = l2_network
         self.amount = amount
         self.recipient = recipient
+        self.status = self.STATUS_CREATED
         self.exchange_reference = None
         self.wallet_reference = None
-        self.status = self.STATUS_CREATED
+        self.txid = None
 
     def to_json(self):
-        ref_schema = CryptoWithdrawalSchema()
+        ref_schema = BalanceUpdateSchema()
         return ref_schema.dump(self)
 
     @classmethod
-    def all_active(cls, session) -> list[CryptoWithdrawal]:
-        return session.query(cls).filter(and_(cls.status != cls.STATUS_COMPLETED, cls.status != cls.STATUS_CANCELLED)).all()
+    def crypto_deposit(cls, user: User, asset: str, l2_network: str | None, amount_int: int, recipient: str):
+        return BalanceUpdate(user, BalanceUpdate.TYPE_DEPOSIT, True, asset, l2_network, amount_int, recipient)
 
     @classmethod
-    def where_active_with_recipient(cls, session, recipient: str) -> list[CryptoWithdrawal]:
-        return session.query(cls).filter(and_(and_(cls.status != cls.STATUS_COMPLETED, cls.status != cls.STATUS_CANCELLED), cls.recipient == recipient)).all()
-
-class CryptoDepositSchema(Schema):
-    token = fields.String()
-    date = fields.DateTime()
-    asset = fields.String()
-    l2_network = fields.String()
-    amount = fields.Integer()
-    amount_dec = fields.Method('get_amount_dec')
-    recipient = fields.Method('get_recipient')
-    txid = fields.String()
-    confirmed = fields.Boolean()
-
-    def get_amount_dec(self, obj):
-        return str(assets.asset_int_to_dec(obj.asset, obj.amount))
-
-    def get_recipient(self, obj):
-        if obj.crypto_address:
-            return obj.crypto_address.address
-        if obj.wallet_reference:
-            return obj.wallet_reference
-        return None
-
-class CryptoDeposit(BaseModel, FromUserMixin, OfAssetMixin):
-    id = Column(Integer, primary_key=True)
-    token = Column(String(255), unique=True, nullable=False)
-    user_id = Column(Integer, ForeignKey('user.id'), nullable=False)
-    user: RelationshipProperty[User] = relationship('User', backref=backref('crypto_deposits', lazy='dynamic'))
-    crypto_address_id = Column(Integer, ForeignKey('crypto_address.id'))
-    crypto_address: RelationshipProperty['CryptoAddress' | None] = relationship('CryptoAddress', backref=backref('crypto_deposits', lazy='dynamic'))
-    date = Column(DateTime(), nullable=False)
-    asset = Column(String, nullable=False)
-    l2_network = Column(String)
-    amount = Column(BigInteger, nullable=False)
-    exchange_reference = Column(String)
-    wallet_reference = Column(String)
-    txid = Column(String(255), unique=True)
-    confirmed = Column(Boolean, nullable=False)
-    expired = Column(Boolean, nullable=False)
-
-    def __init__(self, user, asset, l2_network, amount, exchange_reference, wallet_reference, txid, confirmed, expired):
-        self.token = generate_key()
-        self.user = user
-        self.date = datetime.now()
-        self.asset = asset
-        self.l2_network = l2_network
-        self.amount = amount
-        self.exchange_reference = exchange_reference
-        self.wallet_reference = wallet_reference
-        self.txid = txid
-        self.confirmed = confirmed
-        self.expired = expired
-
-    def to_json(self):
-        ref_schema = CryptoDepositSchema()
-        return ref_schema.dump(self)
+    def crypto_withdrawal(cls, user: User, asset: str, l2_network: str | None, amount_int: int, recipient: str):
+        return BalanceUpdate(user, BalanceUpdate.TYPE_WITHDRAWAL, True, asset, l2_network, amount_int, recipient)
 
     @classmethod
-    def from_txid(cls, session, txid) -> CryptoDeposit | None:
+    def fiat_deposit(cls, user: User, asset: str, amount_int: int, recipient: str):
+        return BalanceUpdate(user, BalanceUpdate.TYPE_DEPOSIT, False, asset, None, amount_int, recipient)
+
+    @classmethod
+    def fiat_withdrawal(cls, user: User, asset: str, amount_int: int, recipient: str):
+        return BalanceUpdate(user, BalanceUpdate.TYPE_WITHDRAWAL, False, asset, None, amount_int, recipient)
+
+    @classmethod
+    def all_active(cls, session, type: str, crypto: bool) -> list[BalanceUpdate]:
+        return session.query(cls).filter(and_(and_(and_(cls.status != cls.STATUS_COMPLETED, cls.status != cls.STATUS_CANCELLED), cls.type == type), cls.crypto == crypto)).all()
+
+    @classmethod
+    def where_active_with_recipient(cls, session, type: str, crypto: bool, recipient: str) -> list[BalanceUpdate]:
+        return session.query(cls).filter(and_(and_(and_(and_(cls.status != cls.STATUS_COMPLETED, cls.status != cls.STATUS_CANCELLED), cls.type == type), cls.crypto == crypto), cls.recipient == recipient)).all()
+
+    @classmethod
+    def from_txid(cls, session, txid) -> BalanceUpdate | None:
         return session.query(cls).filter(cls.txid == txid).first()
 
     @classmethod
-    def of_wallet(cls, session, confirmed, expired) -> list[CryptoDeposit]:
-        return session.query(cls).filter(cls.wallet_reference is not None).filter(cls.confirmed == confirmed).filter(cls.expired == expired).all()
+    def active_deposit_of_wallet(cls, session) -> list[BalanceUpdate]:
+        return session.query(cls).filter(cls.wallet_reference is not None).filter(and_(cls.status != cls.STATUS_COMPLETED, cls.status != cls.STATUS_CANCELLED)).filter(cls.type == cls.TYPE_DEPOSIT).all()
 
     @classmethod
-    def from_wallet_reference(cls, session, wallet_reference) -> CryptoDeposit | None:
+    def from_wallet_reference(cls, session, wallet_reference) -> BalanceUpdate | None:
         return session.query(cls).filter(cls.wallet_reference == wallet_reference).first()
+
+    @classmethod
+    def of_asset(cls, session: Session, user: User, type: str, asset: str, l2_network: str | None, offset: int, limit: int):
+        return session.query(cls).filter(and_(and_(cls.user_id == user.id, and_(cls.asset == asset, cls.l2_network == l2_network), cls.type == type))).order_by(cls.id.desc()).offset(offset).limit(limit)
+
+    @classmethod
+    def total_of_asset(cls, session: Session, user: User, type: str, asset: str, l2_network: str | None):
+        return session.query(cls).filter(and_(and_(cls.user_id == user.id, and_(cls.asset == asset, cls.l2_network == l2_network), cls.type == type))).count()
 
 class WindcavePaymentRequestSchema(Schema):
     date = fields.DateTime()
@@ -964,109 +962,6 @@ class FiatDbTransaction(BaseModel, FromTokenMixin):
         tx_schema = FiatDbTransactionSchema()
         return tx_schema.dump(self)
 
-class FiatDepositSchema(Schema):
-    token = fields.String()
-    date = fields.DateTime()
-    expiry = fields.DateTime()
-    asset = fields.String()
-    amount = fields.Integer()
-    amount_dec = fields.Method('get_amount_dec')
-    status = fields.String()
-    payment_url = fields.Method('get_payment_url')
-
-    def get_amount_dec(self, obj):
-        return str(assets.asset_int_to_dec(obj.asset, obj.amount))
-
-    def get_payment_url(self, obj):
-        payment_url = None
-        if obj.windcave_payment_request:
-            payment_url = url_for('payments.payment_interstitial', token=obj.windcave_payment_request.token, _external=True)
-        return payment_url
-
-class FiatDeposit(BaseModel, FromUserMixin, FromTokenMixin):
-    STATUS_CREATED = 'created'
-    STATUS_COMPLETED = 'completed'
-    STATUS_EXPIRED = 'expired'
-    STATUS_CANCELLED = 'cancelled'
-
-    MINUTES_EXPIRY = 15
-
-    id = Column(Integer, primary_key=True)
-
-    token = Column(String(255), unique=True, nullable=False)
-    user_id = Column(Integer, ForeignKey('user.id'), nullable=False)
-    user: RelationshipProperty[User] = relationship('User', backref=backref('fiat_deposits', lazy='dynamic'))
-    date = Column(DateTime(), nullable=False)
-    expiry = Column(DateTime(), nullable=False)
-    asset = Column(String, nullable=False)
-    amount = Column(BigInteger, nullable=False)
-    windcave_payment_request_id = Column(Integer, ForeignKey('windcave_payment_request.id'))
-    windcave_payment_request: RelationshipProperty[WindcavePaymentRequest | None] = relationship('WindcavePaymentRequest', backref=backref('fiat_deposit', uselist=False))
-    crown_payment_id = Column(Integer, ForeignKey('crown_payment.id'))
-    crown_payment: RelationshipProperty[CrownPayment | None] = relationship('CrownPayment', backref=backref('fiat_deposit', uselist=False))
-
-    status = Column(String, nullable=False)
-
-    def __init__(self, user, asset, amount):
-        self.token = generate_key()
-        self.user = user
-        self.date = datetime.now()
-        self.expiry = datetime.now() + timedelta(minutes=self.MINUTES_EXPIRY)
-        self.asset = asset
-        self.amount = amount
-        self.status = self.STATUS_CREATED
-
-    def to_json(self):
-        ref_schema = FiatDepositSchema()
-        return ref_schema.dump(self)
-
-    @classmethod
-    def all_active(cls, session) -> list[FiatDeposit]:
-        return session.query(cls).filter(and_(cls.status != cls.STATUS_COMPLETED, and_(cls.status != cls.STATUS_EXPIRED, cls.status != cls.STATUS_CANCELLED))).all()
-
-class FiatWithdrawalSchema(Schema):
-    token = fields.String()
-    date = fields.DateTime()
-    asset = fields.String()
-    amount = fields.Integer()
-    amount_dec = fields.Method('get_amount_dec')
-    recipient = fields.String()
-    status = fields.String()
-
-    def get_amount_dec(self, obj):
-        return str(assets.asset_int_to_dec(obj.asset, obj.amount))
-
-class FiatWithdrawal(BaseModel, FromUserMixin, FromTokenMixin, WithdrawStatusMixin):
-    id = Column(Integer, primary_key=True)
-    token = Column(String(255), unique=True, nullable=False)
-    user_id = Column(Integer, ForeignKey('user.id'), nullable=False)
-    user: RelationshipProperty[User] = relationship('User', backref=backref('fiat_withdrawals', lazy='dynamic'))
-    date = Column(DateTime(), nullable=False)
-    asset = Column(String, nullable=False)
-    amount = Column(BigInteger, nullable=False)
-    recipient = Column(String, nullable=False)
-    payout_request_id = Column(Integer, ForeignKey('payout_request.id'))
-    payout_request: RelationshipProperty[PayoutRequest | None] = relationship('PayoutRequest', backref=backref('fiat_withdrawal', uselist=False))
-
-    status = Column(String, nullable=False)
-
-    def __init__(self, user, asset, amount, recipient):
-        self.token = generate_key()
-        self.user = user
-        self.date = datetime.now()
-        self.asset = asset
-        self.amount = amount
-        self.recipient = recipient
-        self.status = self.STATUS_CREATED
-
-    def to_json(self):
-        ref_schema = FiatWithdrawalSchema()
-        return ref_schema.dump(self)
-
-    @classmethod
-    def all_active(cls, session) -> list[FiatWithdrawal]:
-        return session.query(cls).filter(and_(cls.status != cls.STATUS_COMPLETED, cls.status != cls.STATUS_CANCELLED)).all()
-
 class CryptoAddress(BaseModel, FromUserMixin):
 
     id = Column(Integer, primary_key=True)
@@ -1112,51 +1007,27 @@ class WithdrawalConfirmation(BaseModel, FromTokenMixin):
     confirmed: bool | None | Column[bool] = Column(Boolean)
     user_id = Column(Integer, ForeignKey('user.id'))
     user: RelationshipProperty[User] = relationship('User')
-    crypto_withdrawal_id = Column(Integer, ForeignKey('crypto_withdrawal.id'))
-    crypto_withdrawal: RelationshipProperty[CryptoWithdrawal | None] = relationship('CryptoWithdrawal', backref=backref('withdrawal_confirmation', uselist=False))
-    fiat_withdrawal_id = Column(Integer, ForeignKey('fiat_withdrawal.id'))
-    fiat_withdrawal: RelationshipProperty[FiatWithdrawal | None] = relationship('FiatWithdrawal', backref=backref('withdrawal_confirmation', uselist=False))
+    withdrawal_id = Column(Integer, ForeignKey('balance_update.id'))
+    withdrawal: RelationshipProperty[BalanceUpdate | None] = relationship('BalanceUpdate', backref=backref('withdrawal_confirmation', uselist=False))
     address_book_id = Column(Integer, ForeignKey('address_book.id'))
     address_book: RelationshipProperty[AddressBook | None] = relationship('AddressBook')
 
-    def __init__(self, user: User, crypto_withdrawal: CryptoWithdrawal | None = None, fiat_withdrawal: FiatWithdrawal | None = None, address_book: AddressBook | None = None):
-        assert crypto_withdrawal is not None or fiat_withdrawal is not None
-        assert crypto_withdrawal is None or fiat_withdrawal is None
-        if fiat_withdrawal:
-            assert address_book
+    def __init__(self, user: User, withdrawal: BalanceUpdate, address_book: AddressBook | None):
+        assert withdrawal is not None
         self.token = generate_key()
         self.secret = generate_key(20)
         self.date = datetime.now()
         self.expiry = self.date + timedelta(minutes=self.MINUTES_EXPIRY)
         self.confirmed = None
         self.user = user
-        if crypto_withdrawal:
-            self.crypto_withdrawal = crypto_withdrawal
-        if fiat_withdrawal:
-            self.fiat_withdrawal = fiat_withdrawal
-        if address_book:
-            self.address_book = address_book
+        self.withdrawal = withdrawal
+        self.address_book = address_book
 
     def expired(self):
         return datetime.now() > self.expiry
 
-    def withdrawal(self):
-        if self.crypto_withdrawal:
-            return self.crypto_withdrawal
-        assert self.fiat_withdrawal
-        return self.fiat_withdrawal
-
-    def recipient(self):
-        return self.withdrawal().recipient
-
-    def asset(self):
-        return self.withdrawal().asset
-
-    def amount(self):
-        return self.withdrawal().amount
-
     def status_is_created(self):
-        return self.withdrawal().status == self.withdrawal().STATUS_CREATED
+        return self.withdrawal and self.withdrawal.status == self.withdrawal.STATUS_CREATED
 
 class BtcTxIndex(BaseModel):
     id = Column(Integer, primary_key=True)

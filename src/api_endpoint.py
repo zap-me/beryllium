@@ -12,7 +12,7 @@ import web_utils
 from web_utils import bad_request, get_json_params, auth_request, auth_request_get_single_param, auth_request_get_params
 import utils
 import email_utils
-from models import CryptoWithdrawal, FiatDbTransaction, FiatDepositCode, Role, User, UserCreateRequest, UserUpdateEmailRequest, Permission, ApiKey, ApiKeyRequest, BrokerOrder, KycRequest, AddressBook, FiatDeposit, FiatWithdrawal, CryptoAddress, CryptoDeposit, DassetSubaccount, WithdrawalConfirmation
+from models import BalanceUpdate, FiatDbTransaction, FiatDepositCode, Role, User, UserCreateRequest, UserUpdateEmailRequest, Permission, ApiKey, ApiKeyRequest, BrokerOrder, KycRequest, AddressBook, CryptoAddress, DassetSubaccount, WithdrawalConfirmation
 from app_core import app, db, limiter, csrf, SERVER_VERSION, CLIENT_VERSION_DEPLOYED
 from security import tf_enabled_check, tf_method, tf_code_send, tf_method_set, tf_method_unset, tf_secret_init, tf_code_validate, user_datastore
 import windcave
@@ -143,7 +143,7 @@ def user_two_factor_enabled_check():
     if not user:
         time.sleep(5)
         return bad_request(web_utils.AUTH_FAILED)
-    if not flask_security.utils.verify_password(password, user.password):
+    if not verify_password(password, user.password):
         time.sleep(5)
         return bad_request(web_utils.AUTH_FAILED)
     tf_code_send(user)
@@ -167,7 +167,7 @@ def api_key_create():
     if not user:
         time.sleep(5)
         return bad_request(web_utils.AUTH_FAILED)
-    if not flask_security.utils.verify_password(password, user.password):
+    if not verify_password(password, user.password):
         time.sleep(5)
         return bad_request(web_utils.AUTH_FAILED)
     if tf_enabled_check(user) and not tf_code_validate(user, tf_code):
@@ -546,7 +546,7 @@ def withdrawal_confirm(token=None, secret=None):
         flash('Invalid request.', 'danger')
         return redirect('/')
     conf = WithdrawalConfirmation.from_token(db.session, token)
-    if not conf:
+    if not conf or not conf.withdrawal:
         time.sleep(5)
         flash('Withdrawal confirmation not found.', 'danger')
         return redirect('/')
@@ -566,10 +566,9 @@ def withdrawal_confirm(token=None, secret=None):
         return redirect('/')
     if request.method == 'POST':
         confirm = request.form.get('confirm') == 'true'
-        withdrawal = conf.withdrawal()
         with coordinator.lock:
             # check withdrawal status
-            if withdrawal.status != withdrawal.STATUS_CREATED:
+            if not conf.withdrawal or conf.withdrawal.status != conf.withdrawal.STATUS_CREATED:
                 flash('withdrawal status invalid', 'danger')
                 return redirect('/')
             # update confirmation
@@ -583,10 +582,10 @@ def withdrawal_confirm(token=None, secret=None):
             # commit changes
             db.session.commit()
             # update withdrawal asap
-            tasks.task_manager.one_off('update withdrawal', tasks.update_withdrawal, [withdrawal.asset, withdrawal.token])
+            tasks.task_manager.one_off('update withdrawal', tasks.update_withdrawal, [conf.withdrawal.asset, conf.withdrawal.token])
         return redirect('/')
-    asset = conf.asset()
-    amount = conf.amount()
+    asset = conf.withdrawal.asset
+    amount = conf.withdrawal.amount
     amount_dec = assets.asset_int_to_dec(asset, amount)
     amount_str = assets.asset_dec_to_str(asset, amount_dec)
     formatted_amount = f'{amount_str} {asset}'
@@ -622,11 +621,13 @@ def crypto_deposit_recipient_req():
         if not wallet.incoming_available(asset, l2_network, amount_dec):
             return bad_request(web_utils.INSUFFICIENT_LIQUIDITY)
         amount_int = assets.asset_dec_to_int(asset, amount_dec)
-        crypto_deposit = CryptoDeposit(api_key.user, asset, l2_network, amount_int, None, None, None, False, False)
+        crypto_deposit = BalanceUpdate.crypto_deposit(api_key.user, asset, l2_network, amount_int, 'temp recipient')
         logger.info('create local wallet deposit: %s, %s, %s', asset, l2_network, amount_dec)
         wallet_reference, err_msg = wallet.deposit_create(asset, l2_network, crypto_deposit.token, 'deposit to Bronze', amount_dec)
         if err_msg:
             return bad_request(f'{web_utils.FAILED_PAYMENT_CREATE} - {err_msg}')
+        assert wallet_reference
+        crypto_deposit.recipient = wallet_reference  # fill in real recipient here
         crypto_deposit.wallet_reference = wallet_reference
         db.session.add(crypto_deposit)
         db.session.commit()
@@ -663,9 +664,9 @@ def crypto_deposits_req():
     asset, l2_network, offset, limit = params
     if not assets.asset_is_crypto(asset):
         return bad_request(web_utils.INVALID_ASSET)
-    deposits = CryptoDeposit.of_asset(db.session, api_key.user, asset, l2_network, offset, limit)
+    deposits = BalanceUpdate.of_asset(db.session, api_key.user, BalanceUpdate.TYPE_DEPOSIT, asset, l2_network, offset, limit)
     deposits = [deposit.to_json() for deposit in deposits]
-    total = CryptoDeposit.total_of_asset(db.session, api_key.user, asset, l2_network)
+    total = BalanceUpdate.total_of_asset(db.session, api_key.user, BalanceUpdate.TYPE_DEPOSIT, asset, l2_network)
     return jsonify(deposits=deposits, offset=offset, limit=limit, total=total)
 
 def _validate_crypto_asset_withdraw(asset: str, l2_network: str | None, recipient: str | None):
@@ -683,9 +684,9 @@ def _create_withdrawal(user: User, asset: str, l2_network: str | None, amount_de
         # check for any pre-existing withdrawals that might conflict
         if wallet.withdrawal_l2_recipient_exists(asset, l2_network, recipient):
             return None, bad_request(web_utils.RECIPIENT_EXISTS)
-        withdrawals = CryptoWithdrawal.where_active_with_recipient(db.session, recipient)
+        withdrawals = BalanceUpdate.where_active_with_recipient(db.session, BalanceUpdate.TYPE_WITHDRAWAL, True, recipient)
         for withdrawal in withdrawals:
-            if withdrawal.asset == asset and withdrawal.l2_network == l2_network:
+            if withdrawal.asset == asset and withdrawal.l2_network and withdrawal.l2_network == l2_network:
                 return None, bad_request(web_utils.RECIPIENT_EXISTS)
         # check funds available
         amount_plus_fee_dec = amount_dec + assets.asset_withdraw_fee(asset, l2_network, amount_dec)
@@ -695,13 +696,14 @@ def _create_withdrawal(user: User, asset: str, l2_network: str | None, amount_de
         # step 1) create CryptoWithdrawal and ftx and commit so that users balance is updated
         amount_int = assets.asset_dec_to_int(asset, amount_dec)
         amount_plus_fee_int = assets.asset_dec_to_int(asset, amount_plus_fee_dec)
-        crypto_withdrawal = CryptoWithdrawal(user, asset, l2_network, amount_int, recipient)
+        crypto_withdrawal = BalanceUpdate.crypto_withdrawal(user, asset, l2_network, amount_int, recipient)
         ftx = fiatdb_core.tx_create(user, FiatDbTransaction.ACTION_DEBIT, asset, amount_plus_fee_int, f'crypto withdrawal: {crypto_withdrawal.token}')
+        crypto_withdrawal.balance_tx = ftx
         db.session.add(crypto_withdrawal)
         db.session.add(ftx)
         db.session.commit()
         # step 2) create / send withdrawal confirmation
-        conf = WithdrawalConfirmation(crypto_withdrawal.user, crypto_withdrawal=crypto_withdrawal)
+        conf = WithdrawalConfirmation(crypto_withdrawal.user, crypto_withdrawal, None)
         email_utils.email_withdrawal_confirmation(db.session, conf)
         db.session.add(conf)
         db.session.commit()
@@ -767,9 +769,9 @@ def crypto_withdrawals_req():
         return bad_request(web_utils.INVALID_PARAMETER)
     if limit > 1000:
         return bad_request(web_utils.LIMIT_TOO_LARGE)
-    withdrawals = CryptoWithdrawal.of_asset(db.session, api_key.user, asset, l2_network, offset, limit)
+    withdrawals = BalanceUpdate.of_asset(db.session, api_key.user, BalanceUpdate.TYPE_WITHDRAWAL, asset, l2_network, offset, limit)
     withdrawals = [withdrawal.to_json() for withdrawal in withdrawals]
-    total = CryptoWithdrawal.total_of_asset(db.session, api_key.user, asset, l2_network)
+    total = BalanceUpdate.total_of_asset(db.session, api_key.user, BalanceUpdate.TYPE_WITHDRAWAL, asset, l2_network)
     return jsonify(withdrawals=withdrawals, offset=offset, limit=limit, total=total)
 
 @api.route('/fiat_deposit_windcave', methods=['POST'])
@@ -785,10 +787,11 @@ def fiat_deposit_windcave_req():
     if amount_dec <= 0:
         return bad_request(web_utils.INVALID_AMOUNT)
     amount_int = assets.asset_dec_to_int(asset, amount_dec)
-    fiat_deposit = FiatDeposit(api_key.user, asset, amount_int)
+    fiat_deposit = BalanceUpdate.fiat_deposit(api_key.user, asset, amount_int, 'temp recipient')
     payment_request = windcave.payment_create(amount_int, fiat_deposit.expiry)
     if not payment_request:
         return bad_request(web_utils.FAILED_PAYMENT_CREATE)
+    fiat_deposit.recipient = f'windcave session id: {payment_request.windcave_session_id}'  # fill in real recipient here
     fiat_deposit.windcave_payment_request = payment_request
     db.session.add(fiat_deposit)
     db.session.add(payment_request)
@@ -831,9 +834,9 @@ def fiat_deposits_req():
         return bad_request(web_utils.INVALID_PARAMETER)
     if limit > 1000:
         return bad_request(web_utils.LIMIT_TOO_LARGE)
-    deposits = FiatDeposit.from_user(db.session, api_key.user, offset, limit)
+    deposits = BalanceUpdate.of_asset(db.session, api_key.user, BalanceUpdate.TYPE_DEPOSIT, asset, None, offset, limit)
     deposits = [deposit.to_json() for deposit in deposits]
-    total = FiatDeposit.total_for_user(db.session, api_key.user)
+    total = BalanceUpdate.total_of_asset(db.session, api_key.user, BalanceUpdate.TYPE_DEPOSIT, asset, None)
     return jsonify(deposits=deposits, offset=offset, limit=limit, total=total)
 
 @api.route('/fiat_withdrawal_create', methods=['POST'])
@@ -877,14 +880,15 @@ def fiat_withdrawal_create_req():
             return bad_request(web_utils.INSUFFICIENT_BALANCE)
         # step 1) create FiatWithdrawal and ftx and commit so that users balance is updated
         amount_int = assets.asset_dec_to_int(asset, amount_dec)
+        fiat_withdrawal = BalanceUpdate.fiat_withdrawal(api_key.user, asset, amount_int, recipient)
         amount_plus_fee_int = assets.asset_dec_to_int(asset, amount_plus_fee_dec)
-        fiat_withdrawal = FiatWithdrawal(api_key.user, asset, amount_int, recipient)
         ftx = fiatdb_core.tx_create(api_key.user, FiatDbTransaction.ACTION_DEBIT, asset, amount_plus_fee_int, f'fiat withdrawal: {fiat_withdrawal.token}')
+        fiat_withdrawal.balance_tx = ftx
         db.session.add(fiat_withdrawal)
         db.session.add(ftx)
         db.session.commit()
         # step 2) create / send withdrawal confimation
-        conf = WithdrawalConfirmation(fiat_withdrawal.user, fiat_withdrawal=fiat_withdrawal, address_book=entry)
+        conf = WithdrawalConfirmation(fiat_withdrawal.user, fiat_withdrawal, entry)
         email_utils.email_withdrawal_confirmation(db.session, conf)
         db.session.add(conf)
         db.session.commit()
@@ -907,9 +911,9 @@ def fiat_withdrawals_req():
         return bad_request(web_utils.INVALID_PARAMETER)
     if limit > 1000:
         return bad_request(web_utils.LIMIT_TOO_LARGE)
-    withdrawals = FiatWithdrawal.from_user(db.session, api_key.user, offset, limit)
+    withdrawals = BalanceUpdate.of_asset(db.session, api_key.user, BalanceUpdate.TYPE_WITHDRAWAL, asset, None, offset, limit)
     withdrawals = [withdrawal.to_json() for withdrawal in withdrawals]
-    total = FiatWithdrawal.total_for_user(db.session, api_key.user)
+    total = BalanceUpdate.total_of_asset(db.session, api_key.user, BalanceUpdate.TYPE_WITHDRAWAL, asset, None)
     return jsonify(withdrawals=withdrawals, offset=offset, limit=limit, total=total)
 
 @api.route('/address_book', methods=['POST'])
