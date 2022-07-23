@@ -4,6 +4,7 @@ import decimal
 import base64
 import secrets
 import string
+import gevent
 
 import qrcode
 import qrcode.image.svg
@@ -49,3 +50,8 @@ def shorten(value: str) -> str:
     if len(value) <= 100:
         return value
     return f'{value[0:15]}.....{value[len(value)-15:]}'
+
+def yield_gevent():
+    # using a value of 0 means that this greenlet could be reschedualed again immediately so
+    # we sleep for a small positive value to ensure another greenlet gets schedualed
+    gevent.sleep(0.001)

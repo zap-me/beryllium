@@ -1,0 +1,59 @@
+{% extends "layout.html" %}
+{% block content %}
+    <div class="card">
+        <div class="card-body">
+            <h5 class="card-title">Task Test</h5>
+            <form id="form" method="POST">
+                <input type="hidden"
+                       id="csrfToken"
+                       name="csrf_token"
+                       value="{{ csrf_token() }}"/>
+                <div class="form-group">
+                    <label for="action">Action</label>
+                    <select class="form-control"
+                            id="action"
+                            name="action"
+                            aria-describedby="actionHelp">
+                        <option value="cpu">
+                            CPU
+                        </option>
+                        <option value="io">
+                            I/O
+                        </option>
+                    </select>
+                    <small id="actionHelp" class="form-text text-muted">The task action</small>
+                </div>
+                <div class="form-group">
+                    <label for="workTime">Work Time</label>
+                    <input type="number"
+                           class="form-control"
+                           id="workTime"
+                           name="work_time"
+                           value="5000"
+                           aria-describedby="workTimeHelp"/>
+                    <small id="workTimeHelp" class="form-text text-muted">The time limit for the task</small>
+                </div>
+                <div class="form-group">
+                    <label for="yieldAfter">Yield After</label>
+                    <input type="number"
+                           class="form-control"
+                           id="yieldAfter"
+                           name="yield_after"
+                           value="0"
+                           aria-describedby="yieldAfterHelp"/>
+                    <small id="yieldTimeHelp" class="form-text text-muted">The time interval after which to yield to other tasks (not used for I/O tasks)</small>
+                </div>
+                <button id="form-submit" type="submit" class="btn btn-primary">Submit</button>
+            </form>
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-body">
+            <h5 class="card-title">Task Test Result</h5>
+            <div id="result"></div>
+        </div>
+    </div>
+{% endblock %}
+{% block scripts %}
+    <script src="{{ url_for('static',filename='assets/js_custom/task_test.js') }}"></script>
+{% endblock %}

@@ -8,10 +8,12 @@ import email_utils
 import depwith
 import broker
 from task_manager import TaskManager
+from utils import yield_gevent
 import wallet
 from ln import LnRpc, _msat_to_sat
 from models import CryptoDeposit
 import websocket
+import utils
 
 logger = logging.getLogger(__name__)
 
@@ -35,14 +37,14 @@ def process_email_alerts():
 def process_depwith_and_broker_orders():
     logger.info('process deposits..')
     depwith.fiat_deposits_update(db.session)
-    gevent.sleep()
+    utils.yield_gevent()
     depwith.crypto_deposits_check(db.session)
-    gevent.sleep()
+    utils.yield_gevent()
     logger.info('process withdrawals..')
     depwith.fiat_withdrawals_update(db.session)
-    gevent.sleep()
+    utils.yield_gevent()
     depwith.crypto_withdrawals_update(db.session)
-    gevent.sleep()
+    utils.yield_gevent()
     logger.info('process broker orders..')
     broker.broker_orders_update(db.session)
 
@@ -97,7 +99,7 @@ def _process_ln_invoices_loop():
                         # update user with websocket event
                         websocket.ln_invoice_paid_event(label, payment_hash, bolt11, email, description, sat)
                         # yield to other tasks
-                        gevent.sleep()
+                        utils.yield_gevent()
                         # update deposits from wallet
                         depwith.crypto_wallet_deposits_check(db.session)
         except ConnectionError as e:

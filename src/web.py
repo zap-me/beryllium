@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 
+from datetime import datetime, timedelta
 import decimal
 import logging
 import math
@@ -9,6 +10,7 @@ import gevent
 from flask import redirect, render_template, request, flash, jsonify
 from flask.wrappers import Response
 from flask_security.decorators import roles_accepted
+import requests
 
 from app_core import app, boolify, db, socketio
 from models import CryptoWithdrawal, FiatWithdrawal, User, Role, Topic, PushNotificationLocation, BrokerOrder, CryptoDeposit, FiatDeposit, KycRequest, FiatDbTransaction
@@ -33,6 +35,7 @@ import coordinator
 import tripwire
 import db_settings
 import tasks
+import utils
 
 USER_BALANCE_SHOW = 'show balance'
 USER_BALANCE_CREDIT = 'credit'
@@ -431,6 +434,43 @@ def db_test_action():
         else:
             _db_test_write(value)
         return 'ok'
+
+@app.route('/task_test', methods=['GET'])
+@roles_accepted(Role.ROLE_ADMIN)
+def task_test():
+    return render_template('task_test.html')
+
+def _task_test(name: str, action: str, work_time: int, yield_after: int):
+    assert action in ('cpu', 'io')
+    logger.info('starting task: %s-%s for %dms (yield after %dms)', name, action, work_time, yield_after)
+    finish_time = datetime.now() + timedelta(milliseconds=work_time)
+    last_yield = datetime.now()
+    while True:
+        now = datetime.now()
+        if finish_time < now:
+            logger.info('finished task: %s-%s', name, action)
+            return
+        if action == 'cpu':
+            if yield_after and now - timedelta(milliseconds=yield_after) > last_yield:
+                logger.info('yielding task: %s-%s', name, action)
+                last_yield = now
+                utils.yield_gevent()
+            # pointless calculation
+            x = 999999999 * 999999999999999999999
+        else:
+            # pointless IO
+            requests.get('https://google.com')
+
+@app.route('/task_test_action', methods=['POST'])
+@roles_accepted(Role.ROLE_ADMIN)
+def task_test_action():
+    name = request.form['name']
+    action = request.form['action']
+    work_time = int(request.form['work_time'])
+    assert work_time <= 10000
+    yield_after = int(request.form['yield_after'])
+    _task_test(name, action, work_time, yield_after)
+    return 'ok'
 
 #
 # gevent class
