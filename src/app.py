@@ -1,12 +1,16 @@
 #!/usr/bin/python3
 
+# make the standard library cooperative
+# we need to call this first to ensure the libs are patched before use
+from gevent import monkey
+monkey.patch_all()
+
 import sys
 import logging
 import signal
 import traceback
 
 import gevent
-import gevent.pool
 from flask_security.utils import encrypt_password
 
 import payouts_core
